@@ -32,7 +32,6 @@ interface AdminPayload {
   archive: ArchiveConfig;
   matches: Match[];
   fighters: Fighter[];
-  users: User[];
   season: Season;
   maintenance: boolean;
   tracks: Track[];
@@ -44,12 +43,14 @@ export default function AdminOverlay({
   archive: archiveProp,
   matches: matchesProp,
   fighters: fightersProp,
-  users: usersProp,
+  users,
   season: seasonProp,
   maintenance: maintenanceProp,
   tracks: tracksProp,
   style: styleProp,
   onSave,
+  onDeleteUser,
+  onPatchUser,
   onClose,
 }: {
   news: NewsItem[];
@@ -61,10 +62,13 @@ export default function AdminOverlay({
   maintenance: boolean;
   tracks: Track[];
   style: StyleConfig;
-  onSave: (payload: AdminPayload) => void;
+  onSave: (payload: AdminPayload) => Promise<void>;
+  onDeleteUser: (userId: string) => Promise<void>;
+  onPatchUser: (userId: string, patch: any) => Promise<void>;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<TabId>("news");
+  const [saving, setSaving] = useState(false);
 
   const [draftNews, setDraftNews] = useState<NewsItem[]>(() =>
     JSON.parse(JSON.stringify(newsProp))
@@ -77,9 +81,6 @@ export default function AdminOverlay({
   );
   const [draftFighters, setDraftFighters] = useState<Fighter[]>(() =>
     JSON.parse(JSON.stringify(fightersProp))
-  );
-  const [draftUsers, setDraftUsers] = useState<User[]>(() =>
-    JSON.parse(JSON.stringify(usersProp))
   );
   const [draftSeason, setDraftSeason] = useState<Season>(() =>
     JSON.parse(JSON.stringify(seasonProp))
@@ -97,24 +98,27 @@ export default function AdminOverlay({
     JSON.stringify(draftArchive) !== JSON.stringify(archiveProp) ||
     JSON.stringify(draftMatches) !== JSON.stringify(matchesProp) ||
     JSON.stringify(draftFighters) !== JSON.stringify(fightersProp) ||
-    JSON.stringify(draftUsers) !== JSON.stringify(usersProp) ||
     JSON.stringify(draftSeason) !== JSON.stringify(seasonProp) ||
     draftMaintenance !== maintenanceProp ||
     JSON.stringify(draftTracks) !== JSON.stringify(tracksProp) ||
     JSON.stringify(draftStyle) !== JSON.stringify(styleProp);
 
-  function handleSave() {
-    onSave({
-      news: draftNews,
-      archive: draftArchive,
-      matches: draftMatches,
-      fighters: draftFighters,
-      users: draftUsers,
-      season: draftSeason,
-      maintenance: draftMaintenance,
-      tracks: draftTracks,
-      style: draftStyle,
-    });
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await onSave({
+        news: draftNews,
+        archive: draftArchive,
+        matches: draftMatches,
+        fighters: draftFighters,
+        season: draftSeason,
+        maintenance: draftMaintenance,
+        tracks: draftTracks,
+        style: draftStyle,
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleCancel() {
@@ -122,7 +126,6 @@ export default function AdminOverlay({
     setDraftArchive(JSON.parse(JSON.stringify(archiveProp)));
     setDraftMatches(JSON.parse(JSON.stringify(matchesProp)));
     setDraftFighters(JSON.parse(JSON.stringify(fightersProp)));
-    setDraftUsers(JSON.parse(JSON.stringify(usersProp)));
     setDraftSeason(JSON.parse(JSON.stringify(seasonProp)));
     setDraftMaintenance(maintenanceProp);
     setDraftTracks(JSON.parse(JSON.stringify(tracksProp)));
@@ -245,10 +248,11 @@ export default function AdminOverlay({
 
           {tab === "users" && (
             <UsersTab
-              users={draftUsers}
+              users={users}
               fighters={draftFighters}
-              setUsers={setDraftUsers}
               setFighters={setDraftFighters}
+              onDeleteUser={onDeleteUser}
+              onPatchUser={onPatchUser}
             />
           )}
 
@@ -292,7 +296,7 @@ export default function AdminOverlay({
               archive={draftArchive}
               matches={draftMatches}
               fighters={draftFighters}
-              users={draftUsers}
+              users={users}
               tracks={draftTracks}
               style={draftStyle}
               onImport={(data) => {
@@ -300,7 +304,6 @@ export default function AdminOverlay({
                 setDraftArchive(data.archive);
                 setDraftMatches(data.matches);
                 setDraftFighters(data.fighters);
-                setDraftUsers(data.users);
                 setDraftSeason(data.season);
                 setDraftTracks(data.tracks);
                 setDraftStyle(data.style);
@@ -315,14 +318,14 @@ export default function AdminOverlay({
         <div className="max-w-[1280px] mx-auto flex gap-2.5 items-center flex-wrap">
           <button
             onClick={handleSave}
-            disabled={!dirty}
+            disabled={!dirty || saving}
             className={`font-extrabold px-4 py-2.5 rounded-lg cursor-pointer border-none ${
-              dirty
+              dirty && !saving
                 ? "bg-[#35d07f] text-[#062a16] hover:opacity-90"
                 : "bg-[#2a2a36] text-[#666] cursor-not-allowed"
             }`}
           >
-            💾 Сохранить изменения
+            {saving ? "Сохраняю..." : "💾 Сохранить изменения"}
           </button>
           <button
             onClick={handleCancel}
@@ -373,7 +376,6 @@ function NewsTab({
         </h3>
         <p className="text-[#9aa0a6] text-xs mb-4">
           Список баннеров сверху главной страницы. Порядок = порядок вывода.
-          Выключенные баннеры не показываются.
         </p>
         <div className="flex flex-col gap-4">
           {news.map((n, i) => (
@@ -398,9 +400,6 @@ function NewsTab({
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
           Кнопка «Архив»
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Серая плашка под новостями — ведёт на внешний сайт с итогами прошлых сезонов.
-        </p>
         <div className="flex flex-col gap-3 max-w-[720px]">
           <Field label="Показывать">
             <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -638,8 +637,7 @@ function BracketTab({
       </h3>
       <p className="text-[#9aa0a6] text-xs mb-4">
         Пиши имя бойца в ячейку — если такого нет, он создастся автоматически.
-        Заполни баллы, отметь 🏆 победителя, нажми «✓ Завершить и дальше» —
-        победитель сам поедет в следующий раунд, а балл упадёт в сумму.
+        Заполни баллы, отметь 🏆 победителя, нажми «✓ Завершить и дальше».
       </p>
 
       <div
@@ -822,7 +820,6 @@ function FighterRow({
 
   function commitName() {
     const v = localValue.trim();
-
     if (!v) {
       onUpdate(slot === 1 ? { fighter1: null } : { fighter2: null });
       return;
@@ -952,11 +949,7 @@ function SeasonTab({
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
           Параметры текущего сезона
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Меняет то, что уже отображается в шапке сайта.
-        </p>
-
-        <div className="flex flex-col gap-3 max-w-[720px]">
+        <div className="flex flex-col gap-3 max-w-[720px] mt-4">
           <Field label="Название">
             <input
               type="text"
@@ -1022,11 +1015,7 @@ function SeasonTab({
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
           Техработы
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          При включении обычные гости и юзеры видят заглушку. Админ — видит
-          сайт как обычно.
-        </p>
-        <label className="flex items-center gap-2 cursor-pointer text-sm max-w-[720px]">
+        <label className="flex items-center gap-2 cursor-pointer text-sm max-w-[720px] mt-3">
           <input
             type="checkbox"
             checked={maintenance}
@@ -1041,11 +1030,7 @@ function SeasonTab({
         <h3 className="text-[#ff2b2b] text-sm uppercase tracking-widest mb-1">
           ⚠ Начать новый сезон
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Пересоберёт сетку под выбранное количество участников.
-        </p>
-
-        <div className="flex flex-col gap-3 max-w-[720px]">
+        <div className="flex flex-col gap-3 max-w-[720px] mt-4">
           <Field label="Название нового сезона">
             <input
               type="text"
@@ -1103,13 +1088,6 @@ function SeasonTab({
           >
             🚀 Начать новый сезон
           </button>
-
-          <p className="text-[#9aa0a6] text-[11px]">
-            Кнопка меняет состояние в{" "}
-            <strong className="text-[#ffb020]">черновике</strong>. Чтобы
-            изменения применились к сайту, нажми «💾 Сохранить изменения» внизу
-            панели.
-          </p>
         </div>
       </div>
     </div>
@@ -1123,30 +1101,21 @@ function SeasonTab({
 function UsersTab({
   users,
   fighters,
-  setUsers,
   setFighters,
+  onDeleteUser,
+  onPatchUser,
 }: {
   users: User[];
   fighters: Fighter[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   setFighters: React.Dispatch<React.SetStateAction<Fighter[]>>;
+  onDeleteUser: (userId: string) => Promise<void>;
+  onPatchUser: (userId: string, patch: any) => Promise<void>;
 }) {
   const realUsers = users.filter((u) => u.role !== "anonymous");
 
-  function updateUser(id: string, patch: Partial<User>) {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)));
-  }
-
-  function linkFighter(userId: string, fighterId: string) {
+  function updateFighter(id: string, patch: Partial<Fighter>) {
     setFighters((prev) =>
-      prev.map((f) => (f.id === fighterId ? { ...f, userId } : f))
-    );
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId && u.role !== "admin"
-          ? { ...u, role: "participant" as const }
-          : u
-      )
+      prev.map((f) => (f.id === id ? { ...f, ...patch } : f))
     );
   }
 
@@ -1156,35 +1125,31 @@ function UsersTab({
     );
   }
 
-  function demoteAll() {
-    if (
-      !confirm(
-        "Разжаловать всех участников обратно в Юзеров и отвязать их слоты?"
-      )
-    )
-      return;
-    setUsers((prev) =>
-      prev.map((u) => (u.role === "participant" ? { ...u, role: "user" } : u))
-    );
-    setFighters((prev) => prev.map((f) => ({ ...f, userId: null })));
+  function addFreeFighter() {
+    const name = prompt("Имя нового бойца:");
+    if (!name || !name.trim()) return;
+    const newId =
+      "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    setFighters((prev) => [
+      ...prev,
+      { id: newId, name: name.trim(), userId: null, prevScore: 0, totalScore: 0 },
+    ]);
   }
 
-  function updateFighter(id: string, patch: Partial<Fighter>) {
-    setFighters((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, ...patch } : f))
-    );
+  function deleteFighter(fighterId: string, name: string) {
+    if (!confirm(`Удалить бойца «${name}»?`)) return;
+    setFighters((prev) => prev.filter((f) => f.id !== fighterId));
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
-          Пользователи
+          Пользователи ({realUsers.length})
         </h3>
         <p className="text-[#9aa0a6] text-xs mb-4">
-          Один юзер может быть привязан к <strong>нескольким</strong> слотам
-          бойцов (например, основной ник и альтернативный). Все его слоты в
-          сетке подсветятся как «свои».
+          Роли и имена меняются сразу на сервере (без «Сохранить»). Привязка
+          бойцов — часть черновика, сохраняется по кнопке внизу.
         </p>
 
         <div className="flex flex-col gap-3">
@@ -1193,30 +1158,34 @@ function UsersTab({
               key={u.id}
               user={u}
               fighters={fighters}
-              onUpdateUser={(patch) => updateUser(u.id, patch)}
-              onLink={(fid) => linkFighter(u.id, fid)}
+              onPatch={(patch) => onPatchUser(u.id, patch)}
+              onDelete={() => {
+                if (
+                  !confirm(
+                    `Удалить юзера «${u.displayName}» (${u.login}) полностью?\n\nВсе его слоты отвяжутся.`
+                  )
+                )
+                  return;
+                onDeleteUser(u.id);
+              }}
               onUnlink={(fid) => unlinkFighter(fid)}
+              onLinkFighter={(fid) => {
+                setFighters((prev) =>
+                  prev.map((f) => (f.id === fid ? { ...f, userId: u.id } : f))
+                );
+              }}
             />
           ))}
-        </div>
-
-        <div className="mt-4 flex gap-2 flex-wrap">
-          <button
-            onClick={demoteAll}
-            className="bg-transparent text-[#ff2b2b] border border-[#ff2b2b] px-4 py-2 rounded-lg cursor-pointer text-sm font-bold hover:bg-[#ff2b2b] hover:text-white transition-colors"
-          >
-            🔻 Разжаловать всех участников и отвязать слоты
-          </button>
         </div>
       </div>
 
       <div className="border-t border-[#2a2a36] pt-6">
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
-          Бойцы (слоты сетки)
+          Бойцы (слоты сетки) — {fighters.length}
         </h3>
         <p className="text-[#9aa0a6] text-xs mb-4">
-          Пул всех слотов. К каждому можно привязать юзера (тогда он
-          participant) или оставить свободным.
+          Пул всех слотов. К каждому можно привязать юзера или оставить
+          свободным. Удаление бойца уберёт его из сетки.
         </p>
 
         <div className="overflow-x-auto">
@@ -1224,14 +1193,11 @@ function UsersTab({
             <thead>
               <tr className="text-[#9aa0a6] text-[11px] uppercase tracking-widest">
                 <th className="text-left py-2 pr-3 font-semibold">ID</th>
-                <th className="text-left py-2 pr-3 font-semibold">
-                  Имя в сетке
-                </th>
-                <th className="text-left py-2 pr-3 font-semibold">
-                  Прошлый раунд
-                </th>
+                <th className="text-left py-2 pr-3 font-semibold">Имя</th>
+                <th className="text-left py-2 pr-3 font-semibold">Прошлый</th>
                 <th className="text-left py-2 pr-3 font-semibold">Сумма</th>
                 <th className="text-left py-2 pr-3 font-semibold">Владелец</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -1263,7 +1229,7 @@ function UsersTab({
                             prevScore: +e.target.value || 0,
                           })
                         }
-                        className="w-20 bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
+                        className="w-16 bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
                       />
                     </td>
                     <td className="py-2 pr-3">
@@ -1275,7 +1241,7 @@ function UsersTab({
                             totalScore: +e.target.value || 0,
                           })
                         }
-                        className="w-20 bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
+                        className="w-16 bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
                       />
                     </td>
                     <td className="py-2 pr-3 text-[#9aa0a6] text-xs">
@@ -1287,12 +1253,28 @@ function UsersTab({
                         <span className="text-[#666]">— свободен —</span>
                       )}
                     </td>
+                    <td className="py-2 pr-3">
+                      <button
+                        onClick={() => deleteFighter(f.id, f.name)}
+                        title="Удалить бойца"
+                        className="bg-transparent text-[#ff2b2b] border border-[#ff2b2b] w-7 h-7 rounded-md cursor-pointer text-xs hover:bg-[#ff2b2b] hover:text-white transition-colors"
+                      >
+                        🗑
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+
+        <button
+          onClick={addFreeFighter}
+          className="mt-4 bg-[#8b0033] text-white font-bold px-4 py-2.5 rounded-lg cursor-pointer border-none hover:opacity-90"
+        >
+          + Добавить свободного бойца
+        </button>
       </div>
     </div>
   );
@@ -1301,45 +1283,71 @@ function UsersTab({
 function UserRow({
   user,
   fighters,
-  onUpdateUser,
-  onLink,
+  onPatch,
+  onDelete,
   onUnlink,
+  onLinkFighter,
 }: {
   user: User;
   fighters: Fighter[];
-  onUpdateUser: (patch: Partial<User>) => void;
-  onLink: (fighterId: string) => void;
+  onPatch: (patch: any) => void;
+  onDelete: () => void;
   onUnlink: (fighterId: string) => void;
+  onLinkFighter: (fighterId: string) => void;
 }) {
   const linked = fighters.filter((f) => f.userId === user.id);
   const freeFighters = fighters.filter((f) => !f.userId);
 
+  const [displayName, setDisplayName] = useState(user.displayName);
+  const [battleNickname, setBattleNickname] = useState(
+    user.battleNickname ?? ""
+  );
+
+  function saveName() {
+    if (displayName !== user.displayName) {
+      onPatch({ displayName });
+    }
+  }
+
+  function saveNickname() {
+    if (battleNickname !== (user.battleNickname ?? "")) {
+      onPatch({ battleNickname: battleNickname || null });
+    }
+  }
+
   return (
     <div className="bg-[#1d1d27] rounded-xl p-4 border border-[#2a2a36]">
       <div className="flex items-start gap-3 flex-wrap">
-        <div className="flex flex-col gap-1 min-w-[160px]">
+        <div className="flex flex-col gap-1 min-w-[140px]">
           <div className="text-xs text-[#9aa0a6] uppercase tracking-widest">
             Логин
           </div>
           <div className="text-sm font-mono">{user.login}</div>
         </div>
 
-        <div className="flex flex-col gap-1 min-w-[160px]">
+        <div className="flex flex-col gap-1 min-w-[160px] flex-1">
           <div className="text-xs text-[#9aa0a6] uppercase tracking-widest">
-            Имя
+            Отображаемое имя
           </div>
-          <div className="text-sm">{user.displayName}</div>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            className="w-full bg-[#14141c] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
+          />
         </div>
 
-        <div className="flex flex-col gap-1 min-w-[160px]">
+        <div className="flex flex-col gap-1 min-w-[140px]">
           <div className="text-xs text-[#9aa0a6] uppercase tracking-widest">
             Роль
           </div>
           <select
             value={user.role}
-            onChange={(e) =>
-              onUpdateUser({ role: e.target.value as User["role"] })
-            }
+            onChange={(e) => onPatch({ role: e.target.value })}
             className="bg-[#14141c] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
           >
             <option value="user">{roleLabel.user}</option>
@@ -1350,23 +1358,38 @@ function UserRow({
 
         <div className="flex flex-col gap-1 min-w-[160px] flex-1">
           <div className="text-xs text-[#9aa0a6] uppercase tracking-widest">
-            Боевой ник (отображаемое)
+            Боевой ник
           </div>
           <input
             type="text"
-            value={user.battleNickname ?? ""}
+            value={battleNickname}
             placeholder="—"
-            onChange={(e) =>
-              onUpdateUser({ battleNickname: e.target.value || null })
-            }
+            onChange={(e) => setBattleNickname(e.target.value)}
+            onBlur={saveNickname}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
             className="w-full bg-[#14141c] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
           />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <div className="text-xs text-[#9aa0a6] uppercase tracking-widest">
+            &nbsp;
+          </div>
+          <button
+            onClick={onDelete}
+            title="Удалить юзера"
+            className="bg-transparent text-[#ff2b2b] border border-[#ff2b2b] px-3 py-1 rounded-md text-xs cursor-pointer hover:bg-[#ff2b2b] hover:text-white transition-colors"
+          >
+            🗑 Удалить
+          </button>
         </div>
       </div>
 
       <div className="mt-3 pt-3 border-t border-[#2a2a36]">
         <div className="text-xs text-[#9aa0a6] uppercase tracking-widest mb-2">
-          Слоты бойцов ({linked.length})
+          Привязанные бойцы ({linked.length})
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
@@ -1390,7 +1413,7 @@ function UserRow({
             <select
               value=""
               onChange={(e) => {
-                if (e.target.value) onLink(e.target.value);
+                if (e.target.value) onLinkFighter(e.target.value);
                 e.target.value = "";
               }}
               className="bg-[#14141c] text-[#00a3ff] border border-dashed border-[#00a3ff] rounded-full px-3 py-1 text-xs cursor-pointer outline-none"
@@ -1403,10 +1426,6 @@ function UserRow({
               ))}
             </select>
           )}
-
-          {linked.length === 0 && freeFighters.length === 0 && (
-            <span className="text-[#666] text-xs">Нет доступных слотов</span>
-          )}
         </div>
       </div>
     </div>
@@ -1414,7 +1433,7 @@ function UserRow({
 }
 
 /* ============================================================
-   TAB: МАТЧИ (детальная форма)
+   TAB: МАТЧИ
    ============================================================ */
 
 function MatchesTab({
@@ -1438,14 +1457,9 @@ function MatchesTab({
 
   return (
     <div>
-      <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
+      <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">
         Детальная форма по матчам
       </h3>
-      <p className="text-[#9aa0a6] text-xs mb-4">
-        Здесь удобно крутить кэфы и статусы. Баллы и победителя тоже можно
-        ставить тут. Для быстрого прохода по раундам — используй вкладку
-        «Сетка».
-      </p>
 
       <div className="flex flex-col gap-3">
         {sorted.map((m) => {
@@ -1665,13 +1679,9 @@ function TracksTab({
 
   return (
     <div>
-      <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
+      <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">
         Все треки (включая скрытые)
       </h3>
-      <p className="text-[#9aa0a6] text-xs mb-4">
-        Публичные треки видны всем. Скрытые — только тебе и автору. Публикуй
-        треки, когда все сданы и раунд закрыт.
-      </p>
 
       {tracks.length === 0 ? (
         <div className="bg-[#1d1d27] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic mb-4">
@@ -1691,83 +1701,81 @@ function TracksTab({
               </tr>
             </thead>
             <tbody>
-              {tracks.map((t) => {
-                return (
-                  <tr key={t.id} className="border-t border-[#2a2a36]">
-                    <td className="py-2 pr-3">
-                      <select
-                        value={t.fighterId}
-                        onChange={(e) =>
-                          onChange(t.id, { fighterId: e.target.value })
-                        }
-                        className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff] w-full min-w-[140px]"
-                      >
-                        {fighters.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <select
-                        value={t.matchId}
-                        onChange={(e) =>
-                          onChange(t.id, { matchId: e.target.value })
-                        }
-                        className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff] w-full min-w-[100px]"
-                      >
-                        {matches.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            R{m.round}·M{m.index}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="url"
-                        value={t.url}
-                        onChange={(e) => onChange(t.id, { url: e.target.value })}
-                        className="w-full bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="number"
-                        value={t.score ?? ""}
-                        placeholder="—"
-                        onChange={(e) =>
-                          onChange(t.id, {
-                            score:
-                              e.target.value === "" ? null : +e.target.value,
-                          })
-                        }
-                        className="w-16 bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <input
-                        type="checkbox"
-                        checked={t.isPublished}
-                        onChange={(e) =>
-                          onChange(t.id, { isPublished: e.target.checked })
-                        }
-                        className="w-4 h-4 accent-[#35d07f]"
-                      />
-                    </td>
-                    <td className="py-2 pr-3">
-                      <button
-                        onClick={() => onRemove(t.id)}
-                        title="Удалить"
-                        className="bg-transparent text-[#ff2b2b] border border-[#ff2b2b] w-7 h-7 rounded-md cursor-pointer text-xs hover:bg-[#ff2b2b] hover:text-white transition-colors"
-                      >
-                        🗑
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {tracks.map((t) => (
+                <tr key={t.id} className="border-t border-[#2a2a36]">
+                  <td className="py-2 pr-3">
+                    <select
+                      value={t.fighterId}
+                      onChange={(e) =>
+                        onChange(t.id, { fighterId: e.target.value })
+                      }
+                      className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff] w-full min-w-[140px]"
+                    >
+                      {fighters.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <select
+                      value={t.matchId}
+                      onChange={(e) =>
+                        onChange(t.id, { matchId: e.target.value })
+                      }
+                      className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff] w-full min-w-[100px]"
+                    >
+                      {matches.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          R{m.round}·M{m.index}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <input
+                      type="url"
+                      value={t.url}
+                      onChange={(e) => onChange(t.id, { url: e.target.value })}
+                      className="w-full bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
+                    />
+                  </td>
+                  <td className="py-2 pr-3">
+                    <input
+                      type="number"
+                      value={t.score ?? ""}
+                      placeholder="—"
+                      onChange={(e) =>
+                        onChange(t.id, {
+                          score:
+                            e.target.value === "" ? null : +e.target.value,
+                        })
+                      }
+                      className="w-16 bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
+                    />
+                  </td>
+                  <td className="py-2 pr-3">
+                    <input
+                      type="checkbox"
+                      checked={t.isPublished}
+                      onChange={(e) =>
+                        onChange(t.id, { isPublished: e.target.checked })
+                      }
+                      className="w-4 h-4 accent-[#35d07f]"
+                    />
+                  </td>
+                  <td className="py-2 pr-3">
+                    <button
+                      onClick={() => onRemove(t.id)}
+                      title="Удалить"
+                      className="bg-transparent text-[#ff2b2b] border border-[#ff2b2b] w-7 h-7 rounded-md cursor-pointer text-xs hover:bg-[#ff2b2b] hover:text-white transition-colors"
+                    >
+                      🗑
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -1842,13 +1850,9 @@ function StyleTab({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-3">
           Цвета темы
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Применяются на всём сайте: кнопки, баннеры, рамки.
-        </p>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-[720px]">
           <ColorField
             label="Primary (кнопки, баннер)"
@@ -1864,13 +1868,9 @@ function StyleTab({
       </div>
 
       <div className="border-t border-[#2a2a36] pt-6">
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
-          Подсветка участника в сетке
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-3">
+          Подсветка участника
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Используется, когда боец привязан к активному юзеру (участнику).
-        </p>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-[900px]">
           <ColorField
             label="Активный матч"
@@ -1891,13 +1891,9 @@ function StyleTab({
       </div>
 
       <div className="border-t border-[#2a2a36] pt-6">
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
-          Фильтры
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-3">
+          ЧБ-фильтр
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          ЧБ-фильтр делает весь сайт чёрно-белым. Для «военного» вайба.
-        </p>
-
         <label className="flex items-center gap-3 cursor-pointer text-sm">
           <input
             type="range"
@@ -1909,56 +1905,9 @@ function StyleTab({
             className="w-40 accent-[#8b0033]"
           />
           <span className="text-[#9aa0a6]">
-            {style.grayscale === 1 ? "🔴 ЧБ включён" : "⚪ ЧБ выключен"}
+            {style.grayscale === 1 ? "🔴 включён" : "⚪ выключен"}
           </span>
         </label>
-      </div>
-
-      <div className="border-t border-[#2a2a36] pt-6">
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-3">
-          Предпросмотр
-        </h3>
-        <div className="flex flex-wrap gap-3">
-          <button
-            style={{ backgroundColor: style.primary }}
-            className="text-white px-4 py-2 rounded-lg font-bold text-sm cursor-default"
-          >
-            Кнопка Primary
-          </button>
-          <div
-            style={{ borderColor: style.accent }}
-            className="border-2 rounded-lg px-4 py-2 text-sm"
-          >
-            Рамка Accent
-          </div>
-          <div
-            style={{
-              borderColor: style.participantActive,
-              backgroundColor: `${style.participantActive}15`,
-            }}
-            className="border rounded-lg px-4 py-2 text-sm"
-          >
-            Активный
-          </div>
-          <div
-            style={{
-              borderColor: style.participantWin,
-              backgroundColor: `${style.participantWin}1a`,
-            }}
-            className="border rounded-lg px-4 py-2 text-sm"
-          >
-            ✓ Прошёл
-          </div>
-          <div
-            style={{
-              borderColor: style.participantLoss,
-              backgroundColor: `${style.participantLoss}1a`,
-            }}
-            className="border rounded-lg px-4 py-2 text-sm"
-          >
-            ⚰ Вылет
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -2024,10 +1973,7 @@ function BackupTab({
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const stamp = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace(/[:T]/g, "-");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     a.href = url;
     a.download = `ldpj-backup-${stamp}.json`;
     a.click();
@@ -2039,7 +1985,7 @@ function BackupTab({
     if (!file) return;
     if (
       !confirm(
-        "Импорт перезапишет ВСЕ данные в черновике (юзеров, матчи, треки, стили).\n\nПродолжить?"
+        "Импорт перезапишет ВСЕ данные в черновике. Продолжить?"
       )
     ) {
       e.target.value = "";
@@ -2049,14 +1995,11 @@ function BackupTab({
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        if (!parsed.users || !parsed.matches || !parsed.season) {
-          throw new Error("Не похоже на бэкап ЛДПЖ-Батла");
+        if (!parsed.matches || !parsed.season) {
+          throw new Error("Не похоже на бэкап");
         }
         onImport(parsed as BackupData);
-        alert(
-          "Импорт выполнен в черновик.\n\n" +
-            "Нажми «💾 Сохранить изменения» внизу, чтобы применить."
-        );
+        alert("Импорт выполнен в черновик. Нажми «Сохранить» внизу.");
       } catch (err) {
         alert(
           "Ошибка импорта: " +
@@ -2069,28 +2012,20 @@ function BackupTab({
   }
 
   const counts = [
-    ["Пользователей", users.length],
+    ["Юзеров", users.length],
     ["Бойцов", fighters.length],
     ["Матчей", matches.length],
     ["Треков", tracks.length],
-    ["Новостных баннеров", news.length],
+    ["Баннеров", news.length],
   ] as const;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">
           Экспорт
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Скачивает JSON со всеми данными сайта. Этот файл можно открыть в
-          Блокноте, поправить вручную и импортировать обратно.
-        </p>
-
         <div className="bg-[#1d1d27] rounded-xl p-4 mb-4">
-          <div className="text-xs text-[#9aa0a6] uppercase tracking-widest mb-2">
-            Содержимое
-          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
             {counts.map(([label, n]) => (
               <div key={label} className="flex justify-between">
@@ -2100,7 +2035,6 @@ function BackupTab({
             ))}
           </div>
         </div>
-
         <button
           onClick={handleExport}
           className="bg-[#8b0033] text-white font-bold px-5 py-2.5 rounded-lg cursor-pointer border-none hover:opacity-90"
@@ -2110,15 +2044,9 @@ function BackupTab({
       </div>
 
       <div className="border-t border-[#2a2a36] pt-6">
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">
           Импорт
         </h3>
-        <p className="text-[#9aa0a6] text-xs mb-4">
-          Загрузи JSON — все данные перезапишутся в{" "}
-          <strong>черновик</strong>. Чтобы применить, нажми «💾 Сохранить
-          изменения» внизу панели.
-        </p>
-
         <label className="inline-block">
           <input
             type="file"
@@ -2128,29 +2056,12 @@ function BackupTab({
             id="backup-file-input"
           />
           <span
-            onClick={() =>
-              document.getElementById("backup-file-input")?.click()
-            }
+            onClick={() => document.getElementById("backup-file-input")?.click()}
             className="inline-block bg-[#ff2b2b] text-white font-bold px-5 py-2.5 rounded-lg cursor-pointer hover:opacity-90"
           >
             📂 Загрузить backup.json
           </span>
         </label>
-      </div>
-
-      <div className="border-t border-[#2a2a36] pt-6">
-        <h3 className="text-[#ffb020] text-sm uppercase tracking-widest mb-2">
-          ⚠️ Важно (в реальном сайте)
-        </h3>
-        <p className="text-[#9aa0a6] text-xs leading-relaxed">
-          Когда бэкенд будет на Supabase, импорт бэкапа должен дополнительно
-          делать{" "}
-          <strong className="text-[#f5f5f5]">
-            инвалидацию всех JWT-сессий
-          </strong>
-          . Все залогиненные юзеры моментально разлогиниваются. Пока мы на
-          моках — это просто памятка для следующего этапа.
-        </p>
       </div>
     </div>
   );

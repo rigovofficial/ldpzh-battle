@@ -42,6 +42,7 @@ export default function ClientPage() {
   const currentUserId = user?.id ?? "anon";
 
   const [data, setData] = useState<ServerData | null>(null);
+  const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
 
@@ -56,9 +57,25 @@ export default function ClientPage() {
     }
   }, []);
 
+  const reloadUsers = useCallback(async () => {
+    if (role !== "admin") return;
+    try {
+      const res = await fetch("/api/admin/users", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = await res.json();
+      setAdminUsers(json.users ?? []);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [role]);
+
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (adminOpen) reloadUsers();
+  }, [adminOpen, reloadUsers]);
 
   useEffect(() => {
     if (role !== "admin") setAdminOpen(false);
@@ -151,6 +168,34 @@ export default function ClientPage() {
       return;
     }
     await reload();
+    if (role === "admin") await reloadUsers();
+  }
+
+  async function deleteUser(userId: string) {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "DELETE",
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert("Не удалось удалить: " + (json.error ?? "ошибка"));
+      return;
+    }
+    await reloadUsers();
+    await reload();
+  }
+
+  async function patchUser(userId: string, patch: any) {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert("Не удалось: " + (json.error ?? "ошибка"));
+      return;
+    }
+    await reloadUsers();
   }
 
   if (!data) {
@@ -174,12 +219,14 @@ export default function ClientPage() {
           archive={data.archive}
           matches={data.matches}
           fighters={data.fighters}
-          users={[]}
+          users={adminUsers}
           season={data.season}
           maintenance={data.maintenance}
           tracks={data.tracks}
           style={data.style}
           onSave={saveAdmin}
+          onDeleteUser={deleteUser}
+          onPatchUser={patchUser}
           onClose={() => setAdminOpen(false)}
         />
       )}
