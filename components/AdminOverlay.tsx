@@ -1641,18 +1641,26 @@ function TracksTab({
   onRemove: (id: string) => void;
   onAdd: (track: Track) => void;
 }) {
+  const [newFighterId, setNewFighterId] = useState<string>("");
+  const [newMatchId, setNewMatchId] = useState<string>("");
+  const [newUrl, setNewUrl] = useState<string>("");
+
   function addManual() {
-    if (fighters.length === 0 || matches.length === 0) return;
-    const fighterId = fighters[0].id;
-    const matchId = matches[0].id;
+    if (!newFighterId || !newMatchId || !newUrl.trim()) {
+      alert("Выбери бойца, матч и вставь ссылку");
+      return;
+    }
     onAdd({
       id: "t_" + Date.now(),
-      matchId,
-      fighterId,
-      url: "https://",
+      matchId: newMatchId,
+      fighterId: newFighterId,
+      url: newUrl.trim(),
       isPublished: false,
       score: null,
     });
+    setNewFighterId("");
+    setNewMatchId("");
+    setNewUrl("");
   }
 
   return (
@@ -1684,21 +1692,43 @@ function TracksTab({
             </thead>
             <tbody>
               {tracks.map((t) => {
-                const f = fighters.find((x) => x.id === t.fighterId);
-                const m = matches.find((x) => x.id === t.matchId);
                 return (
                   <tr key={t.id} className="border-t border-[#2a2a36]">
-                    <td className="py-2 pr-3">{f?.name ?? t.fighterId}</td>
-                    <td className="py-2 pr-3 text-xs text-[#9aa0a6]">
-                      {m ? `R${m.round}·M${m.index}` : t.matchId}
+                    <td className="py-2 pr-3">
+                      <select
+                        value={t.fighterId}
+                        onChange={(e) =>
+                          onChange(t.id, { fighterId: e.target.value })
+                        }
+                        className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff] w-full min-w-[140px]"
+                      >
+                        {fighters.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <select
+                        value={t.matchId}
+                        onChange={(e) =>
+                          onChange(t.id, { matchId: e.target.value })
+                        }
+                        className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff] w-full min-w-[100px]"
+                      >
+                        {matches.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            R{m.round}·M{m.index}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="py-2 pr-3">
                       <input
                         type="url"
                         value={t.url}
-                        onChange={(e) =>
-                          onChange(t.id, { url: e.target.value })
-                        }
+                        onChange={(e) => onChange(t.id, { url: e.target.value })}
                         className="w-full bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-1 text-xs outline-none focus:border-[#00a3ff]"
                       />
                     </td>
@@ -1743,15 +1773,53 @@ function TracksTab({
         </div>
       )}
 
-      <button
-        onClick={addManual}
-        className="bg-[#8b0033] text-white font-bold px-4 py-2.5 rounded-lg cursor-pointer border-none hover:opacity-90"
-      >
-        + Добавить трек вручную
-      </button>
-      <p className="text-[#9aa0a6] text-[11px] mt-2">
-        Пригодится, если участник сдал ссылку не через форму, а в чат.
-      </p>
+      <div className="border-t border-[#2a2a36] pt-4">
+        <h4 className="text-[#00a3ff] text-xs uppercase tracking-widest mb-3">
+          Добавить трек вручную
+        </h4>
+        <div className="flex gap-2 flex-wrap items-center">
+          <select
+            value={newFighterId}
+            onChange={(e) => setNewFighterId(e.target.value)}
+            className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-2 text-xs outline-none focus:border-[#00a3ff]"
+          >
+            <option value="">— выбери бойца —</option>
+            {fighters.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={newMatchId}
+            onChange={(e) => setNewMatchId(e.target.value)}
+            className="bg-[#1d1d27] text-white border border-[#333] rounded-md px-2 py-2 text-xs outline-none focus:border-[#00a3ff]"
+          >
+            <option value="">— выбери матч —</option>
+            {matches.map((m) => (
+              <option key={m.id} value={m.id}>
+                Раунд {m.round} · Матч {m.index}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="url"
+            value={newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            placeholder="https://soundcloud.com/..."
+            className="flex-1 min-w-[200px] bg-[#1d1d27] text-white border border-[#333] rounded-md px-3 py-2 text-xs outline-none focus:border-[#00a3ff]"
+          />
+
+          <button
+            onClick={addManual}
+            className="bg-[#8b0033] text-white font-bold px-4 py-2 rounded-lg cursor-pointer border-none hover:opacity-90 text-xs"
+          >
+            + Добавить
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

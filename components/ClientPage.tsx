@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import TopBar from "./TopBar";
 import SeasonHeader from "./SeasonHeader";
 import NewsBanners from "./NewsBanners";
@@ -11,16 +11,6 @@ import TracksSection from "./TracksSection";
 import AdminOverlay from "./AdminOverlay";
 import Footer from "./Footer";
 import { useAuth } from "@/lib/auth-context";
-import {
-  mockSeason,
-  mockMatches,
-  mockTracks,
-  mockFighters,
-  mockNews,
-  mockArchive,
-  mockUsers,
-  mockStyle,
-} from "@/lib/mock-data";
 import type {
   Match,
   Track,
@@ -35,30 +25,48 @@ import type {
 
 type Role = "anonymous" | "user" | "participant" | "admin";
 
+interface ServerData {
+  season: Season;
+  maintenance: boolean;
+  archive: ArchiveConfig;
+  style: StyleConfig;
+  news: NewsItem[];
+  matches: Match[];
+  fighters: Fighter[];
+  tracks: Track[];
+}
+
 export default function ClientPage() {
   const { user } = useAuth();
   const role: Role = (user?.role as Role) ?? "anonymous";
   const currentUserId = user?.id ?? "anon";
 
-  const [matches, setMatches] = useState<Match[]>(mockMatches);
-  const [fighters, setFighters] = useState<Fighter[]>(mockFighters);
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [data, setData] = useState<ServerData | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
-  const [tracks, setTracks] = useState<Track[]>(mockTracks);
-  const [news, setNews] = useState<NewsItem[]>(mockNews);
-  const [archive, setArchive] = useState<ArchiveConfig>(mockArchive);
-  const [season, setSeason] = useState<Season>(mockSeason);
-  const [style, setStyle] = useState<StyleConfig>(mockStyle);
-  const [maintenance, setMaintenance] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
 
-  // Закрываем админку, если роль перестала быть admin
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/data", { cache: "no-store" });
+      if (!res.ok) throw new Error("load failed");
+      const json = await res.json();
+      setData(json);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
   useEffect(() => {
     if (role !== "admin") setAdminOpen(false);
   }, [role]);
 
   function placeBet(matchId: string, fighterId: string) {
-    const m = matches.find((x) => x.id === matchId);
+    if (!data) return;
+    const m = data.matches.find((x) => x.id === matchId);
     if (!m || m.status !== "betting_open") return;
     if (bets.some((b) => b.userId === currentUserId && b.matchId === matchId))
       return;
@@ -69,87 +77,108 @@ export default function ClientPage() {
       { userId: currentUserId, matchId, fighterId, coeff },
     ]);
 
-    setMatches((prev) =>
-      prev.map((x) => {
-        if (x.id !== matchId) return x;
-        if (fighterId === x.fighter1) {
-          return {
-            ...x,
-            odds1: Math.max(1.01, +(x.odds1 - 0.06).toFixed(2)),
-            odds2: +(x.odds2 + 0.07).toFixed(2),
-          };
-        }
-        return {
-          ...x,
-          odds2: Math.max(1.01, +(x.odds2 - 0.06).toFixed(2)),
-          odds1: +(x.odds1 + 0.07).toFixed(2),
-        };
-      })
+    setData((prev) =>
+      !prev
+        ? prev
+        : {
+            ...prev,
+            matches: prev.matches.map((x) => {
+              if (x.id !== matchId) return x;
+              if (fighterId === x.fighter1) {
+                return {
+                  ...x,
+                  odds1: Math.max(1.01, +(x.odds1 - 0.06).toFixed(2)),
+                  odds2: +(x.odds2 + 0.07).toFixed(2),
+                };
+              }
+              return {
+                ...x,
+                odds2: Math.max(1.01, +(x.odds2 - 0.06).toFixed(2)),
+                odds1: +(x.odds1 + 0.07).toFixed(2),
+              };
+            }),
+          }
     );
   }
 
   function submitTrack(matchId: string, url: string) {
-    const myFighters = fighters.filter((f) => f.userId === currentUserId);
+    if (!data) return;
+    const myFighters = data.fighters.filter((f) => f.userId === currentUserId);
     if (myFighters.length === 0) return;
     const myFighter = myFighters[0];
-    setTracks((prev) => [
-      ...prev,
-      {
-        id: "t_" + Date.now(),
-        matchId,
-        fighterId: myFighter.id,
-        url,
-        isPublished: false,
-        score: null,
-      },
-    ]);
-  }
-
-  function togglePublish(trackId: string) {
-    setTracks((prev) =>
-      prev.map((t) =>
-        t.id === trackId ? { ...t, isPublished: !t.isPublished } : t
-      )
+    setData((prev) =>
+      !prev
+        ? prev
+        : {
+            ...prev,
+            tracks: [
+              ...prev.tracks,
+              {
+                id: "t_" + Date.now(),
+                matchId,
+                fighterId: myFighter.id,
+                url,
+                isPublished: false,
+                score: null,
+              },
+            ],
+          }
     );
   }
 
-  function saveAdmin(payload: {
-    news: NewsItem[];
-    archive: ArchiveConfig;
-    matches: Match[];
-    fighters: Fighter[];
-    users: User[];
-    season: Season;
-    maintenance: boolean;
-    tracks: Track[];
-    style: StyleConfig;
-  }) {
-    setNews(payload.news);
-    setArchive(payload.archive);
-    setMatches(payload.matches);
-    setFighters(payload.fighters);
-    setUsers(payload.users);
-    setSeason(payload.season);
-    setMaintenance(payload.maintenance);
-    setTracks(payload.tracks);
-    setStyle(payload.style);
+  function togglePublish(trackId: string) {
+    setData((prev) =>
+      !prev
+        ? prev
+        : {
+            ...prev,
+            tracks: prev.tracks.map((t) =>
+              t.id === trackId ? { ...t, isPublished: !t.isPublished } : t
+            ),
+          }
+    );
   }
 
-  const showMaintenance = maintenance && role !== "admin";
+  async function saveAdmin(payload: any) {
+    const res = await fetch("/api/admin/save", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert("Не удалось сохранить: " + (json.error ?? "ошибка"));
+      return;
+    }
+    await reload();
+  }
+
+  if (!data) {
+    return (
+      <>
+        <TopBar onOpenAdmin={() => setAdminOpen(true)} />
+        <div className="min-h-screen flex items-center justify-center text-[#9aa0a6] bg-[#0b0b0f]">
+          Загрузка...
+        </div>
+      </>
+    );
+  }
+
+  const showMaintenance = data.maintenance && role !== "admin";
 
   return (
     <>
       {adminOpen && role === "admin" && (
         <AdminOverlay
-          news={news}
-          archive={archive}
-          matches={matches}
-          fighters={fighters}
-          users={users}
-          season={season}
-          maintenance={maintenance}
-          tracks={tracks}
-          style={style}
+          news={data.news}
+          archive={data.archive}
+          matches={data.matches}
+          fighters={data.fighters}
+          users={[]}
+          season={data.season}
+          maintenance={data.maintenance}
+          tracks={data.tracks}
+          style={data.style}
           onSave={saveAdmin}
           onClose={() => setAdminOpen(false)}
         />
@@ -159,7 +188,7 @@ export default function ClientPage() {
 
       <main
         className="min-h-screen bg-[#0b0b0f] text-[#f5f5f5]"
-        style={{ filter: `grayscale(${style.grayscale})` }}
+        style={{ filter: `grayscale(${data.style.grayscale})` }}
       >
         <div className="max-w-[1180px] mx-auto p-4">
           {showMaintenance ? (
@@ -168,29 +197,27 @@ export default function ClientPage() {
             </div>
           ) : (
             <>
-              <SeasonHeader season={season} />
-
-              <NewsBanners items={news} />
-
-              <ArchiveBanner config={archive} />
+              <SeasonHeader season={data.season} />
+              <NewsBanners items={data.news} />
+              <ArchiveBanner config={data.archive} />
 
               <section className="mb-8">
                 <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
                   Турнирная сетка
                 </h2>
                 <Bracket
-                  matches={matches}
-                  fighters={fighters}
+                  matches={data.matches}
+                  fighters={data.fighters}
                   currentUserId={currentUserId}
                   role={role}
-                  style={style}
+                  style={data.style}
                 />
               </section>
 
               <MatchesSection
-                matches={matches}
+                matches={data.matches}
                 bets={bets}
-                fighters={fighters}
+                fighters={data.fighters}
                 role={role}
                 currentUserId={currentUserId}
                 onBet={placeBet}
@@ -199,9 +226,9 @@ export default function ClientPage() {
               <TracksSection
                 role={role}
                 currentUserId={currentUserId}
-                matches={matches}
-                fighters={fighters}
-                tracks={tracks}
+                matches={data.matches}
+                fighters={data.fighters}
+                tracks={data.tracks}
                 onTrackSubmit={submitTrack}
                 onTogglePublish={togglePublish}
               />
