@@ -32,7 +32,16 @@ export async function PUT(req: NextRequest) {
   if (!body)
     return NextResponse.json({ error: "Невалидный JSON" }, { status: 400 });
 
-  const { season, maintenance, news, archive, matches, fighters, tracks, style } = body;
+  const {
+    season,
+    maintenance,
+    news,
+    archive,
+    matches,
+    fighters,
+    tracks,
+    style,
+  } = body;
 
   try {
     // 1. Конфиг сайта
@@ -42,19 +51,52 @@ export async function PUT(req: NextRequest) {
       .eq("id", 1);
     if (configErr) throw new Error("site_config: " + configErr.message);
 
-    // 2. tracks (сначала, т.к. FK на matches/fighters)
-    await supabaseAdmin.from("tracks").delete().neq("id", "__never__");
+    // 2. bets — сначала, потому что FK на matches и fighters
+    {
+      const { error } = await supabaseAdmin
+        .from("bets")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (error) throw new Error("bets delete: " + error.message);
+    }
 
-    // 3. matches
-    await supabaseAdmin.from("matches").delete().neq("id", "__never__");
+    // 3. tracks — FK на matches и fighters
+    {
+      const { error } = await supabaseAdmin
+        .from("tracks")
+        .delete()
+        .neq("id", "__never__");
+      if (error) throw new Error("tracks delete: " + error.message);
+    }
 
-    // 4. fighters
-    await supabaseAdmin.from("fighters").delete().neq("id", "__never__");
+    // 4. matches — FK на fighters
+    {
+      const { error } = await supabaseAdmin
+        .from("matches")
+        .delete()
+        .neq("id", "__never__");
+      if (error) throw new Error("matches delete: " + error.message);
+    }
 
-    // 5. news
-    await supabaseAdmin.from("news").delete().neq("id", "__never__");
+    // 5. fighters
+    {
+      const { error } = await supabaseAdmin
+        .from("fighters")
+        .delete()
+        .neq("id", "__never__");
+      if (error) throw new Error("fighters delete: " + error.message);
+    }
 
-    // --- теперь вставляем ---
+    // 6. news
+    {
+      const { error } = await supabaseAdmin
+        .from("news")
+        .delete()
+        .neq("id", "__never__");
+      if (error) throw new Error("news delete: " + error.message);
+    }
+
+    // --- вставляем заново ---
 
     if (fighters?.length) {
       const { error } = await supabaseAdmin.from("fighters").insert(

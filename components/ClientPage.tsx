@@ -157,18 +157,40 @@ export default function ClientPage() {
   }
 
   async function saveAdmin(payload: any) {
-    const res = await fetch("/api/admin/save", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      alert("Не удалось сохранить: " + (json.error ?? "ошибка"));
-      return;
+    try {
+      const res = await fetch("/api/admin/save", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = { error: text || "Пустой ответ сервера" };
+      }
+
+      if (!res.ok) {
+        alert(
+          "Не удалось сохранить (" +
+            res.status +
+            "):\n\n" +
+            (json.error ?? "неизвестная ошибка")
+        );
+        return;
+      }
+
+      await reload();
+      if (role === "admin") await reloadUsers();
+      alert("Сохранено!");
+    } catch (err) {
+      alert(
+        "Сетевая ошибка:\n\n" +
+          (err instanceof Error ? err.message : "неизвестно")
+      );
     }
-    await reload();
-    if (role === "admin") await reloadUsers();
   }
 
   async function deleteUser(userId: string) {
