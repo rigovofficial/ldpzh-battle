@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import TopBar from "./TopBar";
 import SeasonHeader from "./SeasonHeader";
 import NewsBanners from "./NewsBanners";
@@ -37,6 +38,7 @@ interface ServerData {
 }
 
 export default function ClientPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const role: Role = (user?.role as Role) ?? "anonymous";
   const currentUserId = user?.id ?? "anon";
@@ -72,6 +74,15 @@ export default function ClientPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Если данные не пришли за 8 секунд — отправляем на /vpn
+  useEffect(() => {
+    if (data) return;
+    const timer = setTimeout(() => {
+      router.push("/vpn");
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [data, router]);
 
   useEffect(() => {
     if (adminOpen) reloadUsers();
