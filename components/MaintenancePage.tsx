@@ -6,8 +6,17 @@ import { useEffect, useState } from "react";
 // Можно загрузить на любой публичный хостинг и вставить URL.
 // Пока список пуст — будет показана заглушка с микрофоном.
 const MARKIN_PHOTOS: string[] = [
-  // "https://example.com/markin-1.jpg",
-  // "https://example.com/markin-2.jpg",
+  "/markin/1.jpeg",
+  "/markin/2.jpeg",
+  "/markin/3.jpeg",
+  "/markin/4.jpeg",
+  "/markin/5.jpeg",
+  "/markin/6.jpeg",
+  "/markin/7.jpeg",
+  "/markin/8.jpeg",
+  "/markin/9.jpeg",
+  "/markin/10.jpeg",
+  "/markin/11.jpeg",
 ];
 
 const ROADMAP = [
