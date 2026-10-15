@@ -17,6 +17,11 @@ const MARKIN_PHOTOS: string[] = [
   "/markin/9.jpeg",
   "/markin/10.jpeg",
   "/markin/11.jpeg",
+  "/markin/12.jpeg",
+  "/markin/13.jpeg",
+  "/markin/14.jpeg",
+  "/markin/15.jpeg",
+  "/markin/16.jpeg",
 ];
 
 const ROADMAP = [
