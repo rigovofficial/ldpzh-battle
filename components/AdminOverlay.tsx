@@ -12,10 +12,13 @@ import type {
   Board,
   Participation,
 } from "@/lib/types";
+import BoardTab from "./admin/BoardTab";
+import MatchesTab from "./admin/MatchesTab";
 
 const TABS = [
   { id: "news", label: "📰 Новости" },
   { id: "boards", label: "🥊 Сетки" },
+  { id: "matches", label: "⚔ Матчи" },
   { id: "users", label: "👥 Юзеры" },
   { id: "tracks", label: "🎵 Треки" },
   { id: "style", label: "🎨 Стили" },
@@ -28,11 +31,11 @@ export default function AdminOverlay({
   news: newsProp,
   archive: archiveProp,
   style: styleProp,
-  boards,
-  fighters,
-  participations,
-  matches,
-  tracks,
+  boards: boardsProp,
+  fighters: fightersProp,
+  participations: participationsProp,
+  matches: matchesProp,
+  tracks: tracksProp,
   users,
   maintenance: maintenanceProp,
   onSave,
@@ -69,11 +72,33 @@ export default function AdminOverlay({
   );
   const [draftMaintenance, setDraftMaintenance] = useState(maintenanceProp);
 
+  const [draftBoards, setDraftBoards] = useState<Board[]>(() =>
+    JSON.parse(JSON.stringify(boardsProp))
+  );
+  const [draftFighters, setDraftFighters] = useState<Fighter[]>(() =>
+    JSON.parse(JSON.stringify(fightersProp))
+  );
+  const [draftParticipations, setDraftParticipations] = useState<
+    Participation[]
+  >(() => JSON.parse(JSON.stringify(participationsProp)));
+  const [draftMatches, setDraftMatches] = useState<Match[]>(() =>
+    JSON.parse(JSON.stringify(matchesProp))
+  );
+  const [draftTracks, setDraftTracks] = useState<Track[]>(() =>
+    JSON.parse(JSON.stringify(tracksProp))
+  );
+
   const dirty =
     JSON.stringify(draftNews) !== JSON.stringify(newsProp) ||
     JSON.stringify(draftArchive) !== JSON.stringify(archiveProp) ||
     JSON.stringify(draftStyle) !== JSON.stringify(styleProp) ||
-    draftMaintenance !== maintenanceProp;
+    draftMaintenance !== maintenanceProp ||
+    JSON.stringify(draftBoards) !== JSON.stringify(boardsProp) ||
+    JSON.stringify(draftFighters) !== JSON.stringify(fightersProp) ||
+    JSON.stringify(draftParticipations) !==
+      JSON.stringify(participationsProp) ||
+    JSON.stringify(draftMatches) !== JSON.stringify(matchesProp) ||
+    JSON.stringify(draftTracks) !== JSON.stringify(tracksProp);
 
   async function handleSave() {
     setSaving(true);
@@ -83,12 +108,11 @@ export default function AdminOverlay({
         archive: draftArchive,
         style: draftStyle,
         maintenance: draftMaintenance,
-        // Пока не редактируем, но шлём как есть
-        boards,
-        fighters,
-        participations,
-        matches,
-        tracks,
+        boards: draftBoards,
+        fighters: draftFighters,
+        participations: draftParticipations,
+        matches: draftMatches,
+        tracks: draftTracks,
       });
     } finally {
       setSaving(false);
@@ -153,7 +177,7 @@ export default function AdminOverlay({
                 )
               }
               onRemoveNews={(id) => {
-                if (!confirm("Удалить этот баннер?")) return;
+                if (!confirm("Удалить баннер?")) return;
                 setDraftNews((prev) => prev.filter((n) => n.id !== id));
               }}
               onAddNews={() =>
@@ -177,6 +201,28 @@ export default function AdminOverlay({
             />
           )}
 
+          {tab === "boards" && (
+            <BoardTab
+              boards={draftBoards}
+              matches={draftMatches}
+              fighters={draftFighters}
+              participations={draftParticipations}
+              setBoards={setDraftBoards}
+              setMatches={setDraftMatches}
+              setFighters={setDraftFighters}
+              setParticipations={setDraftParticipations}
+            />
+          )}
+
+          {tab === "matches" && (
+            <MatchesTab
+              boards={draftBoards}
+              matches={draftMatches}
+              fighters={draftFighters}
+              setMatches={setDraftMatches}
+            />
+          )}
+
           {tab === "style" && (
             <StyleTab style={draftStyle} setStyle={setDraftStyle} />
           )}
@@ -186,11 +232,11 @@ export default function AdminOverlay({
               news={draftNews}
               archive={draftArchive}
               style={draftStyle}
-              boards={boards}
-              fighters={fighters}
-              participations={participations}
-              matches={matches}
-              tracks={tracks}
+              boards={draftBoards}
+              fighters={draftFighters}
+              participations={draftParticipations}
+              matches={draftMatches}
+              tracks={draftTracks}
               users={users}
               maintenance={draftMaintenance}
               onImport={(data) => {
@@ -199,13 +245,17 @@ export default function AdminOverlay({
                 if (data.style) setDraftStyle(data.style);
                 if (typeof data.maintenance === "boolean")
                   setDraftMaintenance(data.maintenance);
+                if (data.boards) setDraftBoards(data.boards);
+                if (data.fighters) setDraftFighters(data.fighters);
+                if (data.participations)
+                  setDraftParticipations(data.participations);
+                if (data.matches) setDraftMatches(data.matches);
+                if (data.tracks) setDraftTracks(data.tracks);
               }}
             />
           )}
 
-          {(tab === "boards" || tab === "users" || tab === "tracks") && (
-            <Placeholder tab={tab} />
-          )}
+          {(tab === "users" || tab === "tracks") && <Placeholder tab={tab} />}
         </div>
       </div>
 
@@ -223,10 +273,10 @@ export default function AdminOverlay({
             {saving ? "Сохраняю..." : "💾 Сохранить изменения"}
           </button>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="bg-transparent border border-[#333] text-[#9aa0a6] px-4 py-2.5 rounded-lg cursor-pointer hover:border-[#666]"
           >
-            Закрыть
+            Отменить
           </button>
           <span className="text-[#ffb020] text-xs ml-auto">
             {dirty
@@ -239,7 +289,7 @@ export default function AdminOverlay({
   );
 }
 
-/* ==== НОВОСТИ ==== */
+/* ==== НОВОСТИ (без изменений) ==== */
 
 function NewsTab({
   news,
@@ -414,7 +464,7 @@ function NewsEditor({
   );
 }
 
-/* ==== СТИЛИ ==== */
+/* ==== СТИЛИ (без изменений) ==== */
 
 function StyleTab({
   style,
@@ -493,7 +543,7 @@ function StyleTab({
   );
 }
 
-/* ==== БЭКАП ==== */
+/* ==== БЭКАП (без изменений) ==== */
 
 function BackupTab({
   news,
@@ -549,10 +599,7 @@ function BackupTab({
         onImport(parsed);
         alert("Импорт выполнен в черновик. Нажми «Сохранить».");
       } catch (err) {
-        alert(
-          "Ошибка импорта: " +
-            (err instanceof Error ? err.message : "невалидный JSON")
-        );
+        alert("Ошибка импорта: " + (err instanceof Error ? err.message : "?"));
       }
       e.target.value = "";
     };
@@ -626,20 +673,15 @@ function BackupTab({
 /* ==== ЗАГЛУШКА ==== */
 
 function Placeholder({ tab }: { tab: TabId }) {
-  const desc: Record<string, string> = {
-    boards: "Редактор сеток появится здесь: создание, редактирование, показ/скрытие.",
-    users:
-      "Управление юзерами и их привязками к бойцам появится здесь в следующих шагах.",
-    tracks:
-      "Управление треками появится здесь в следующих шагах.",
-  };
   return (
     <div className="text-center py-16">
       <div className="text-[#9aa0a6] text-sm mb-3 uppercase tracking-widest">
         🚧 В разработке
       </div>
       <div className="text-[#f5f5f5] text-base max-w-[560px] mx-auto leading-relaxed">
-        {desc[tab] ?? ""}
+        {tab === "users"
+          ? "Управление юзерами — в следующем шаге."
+          : "Управление треками — в следующем шаге."}
       </div>
     </div>
   );
