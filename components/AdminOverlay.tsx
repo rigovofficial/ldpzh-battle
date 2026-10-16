@@ -14,6 +14,8 @@ import type {
 } from "@/lib/types";
 import BoardTab from "./admin/BoardTab";
 import MatchesTab from "./admin/MatchesTab";
+import UsersTab from "./admin/UsersTab";
+import TracksTab from "./admin/TracksTab";
 
 const TABS = [
   { id: "news", label: "📰 Новости" },
@@ -255,7 +257,25 @@ export default function AdminOverlay({
             />
           )}
 
-          {(tab === "users" || tab === "tracks") && <Placeholder tab={tab} />}
+                   {tab === "users" && (
+            <UsersTab
+              users={users}
+              fighters={draftFighters}
+              setFighters={setDraftFighters}
+              onDeleteUser={onDeleteUser}
+              onPatchUser={onPatchUser}
+            />
+          )}
+
+          {tab === "tracks" && (
+            <TracksTab
+              boards={draftBoards}
+              matches={draftMatches}
+              fighters={draftFighters}
+              tracks={draftTracks}
+              setTracks={setDraftTracks}
+            />
+          )}
         </div>
       </div>
 
