@@ -114,15 +114,6 @@ export default function ClientPage({
       alert("Сетевая ошибка");
     }
   }
-              return {
-                ...x,
-                odds2: Math.max(1.01, +(x.odds2 - 0.06).toFixed(2)),
-                odds1: +(x.odds1 + 0.07).toFixed(2),
-              };
-            }),
-          }
-    );
-  }
 
   function submitTrack(matchId: string, url: string) {
     if (!data) return;
