@@ -11,6 +11,7 @@ import MatchesSection from "./MatchesSection";
 import TracksSection from "./TracksSection";
 import AdminOverlay from "./AdminOverlay";
 import Footer from "./Footer";
+import MaintenancePage from "./MaintenancePage";
 import { useAuth } from "@/lib/auth-context";
 import type {
   Match,
@@ -37,7 +38,11 @@ interface ServerData {
   tracks: Track[];
 }
 
-export default function ClientPage() {
+export default function ClientPage({
+  maintenanceMode = false,
+}: {
+  maintenanceMode?: boolean;
+}) {
   const router = useRouter();
   const { user } = useAuth();
   const role: Role = (user?.role as Role) ?? "anonymous";
@@ -231,6 +236,26 @@ export default function ClientPage() {
     await reloadUsers();
   }
 
+  
+
+  // Если включён глобальный режим заглушки — админ видит сайт, остальные видят MaintenancePage.
+  // Пока роль не известна (идёт загрузка сессии) — нейтральный экран «Загрузка...».
+  if (maintenanceMode) {
+    if (!user) {
+      return (
+        <>
+          <TopBar onOpenAdmin={() => setAdminOpen(true)} />
+          <div className="min-h-screen flex items-center justify-center text-[#9aa0a6] bg-[#0b0b0f]">
+            Загрузка...
+          </div>
+        </>
+      );
+    }
+    if (role !== "admin") {
+      return <MaintenancePage />;
+    }
+  }
+
   if (!data) {
     return (
       <>
@@ -241,7 +266,6 @@ export default function ClientPage() {
       </>
     );
   }
-
   const showMaintenance = data.maintenance && role !== "admin";
 
   return (
