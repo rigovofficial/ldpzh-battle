@@ -74,10 +74,13 @@ export interface Track {
 }
 
 export interface Bet {
+  id: string;
   userId: string;
   matchId: string;
   team: 0 | 1;
   coeff: number;
+  points: number;
+  createdAt: string;
 }
 
 export interface User {
@@ -86,6 +89,7 @@ export interface User {
   displayName: string;
   role: UserRole;
   battleNickname: string | null;
+  predictions?: number;
 }
 
 export interface NewsItem {

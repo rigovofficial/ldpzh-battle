@@ -59,15 +59,9 @@ export async function PUT(req: NextRequest) {
       if (error) throw new Error("site_config: " + error.message);
     }
 
-    // 2. Сносим в порядке FK
-    for (const t of ["bets", "tracks", "matches", "participations", "fighters", "boards", "news"]) {
-      const { error } =
-        t === "bets"
-          ? await supabaseAdmin
-              .from(t)
-              .delete()
-              .neq("id", "00000000-0000-0000-0000-000000000000")
-          : await supabaseAdmin.from(t).delete().neq("id", "__never__");
+    // 2. Удаляем всё кроме bets (bets держатся за матчи через CASCADE)
+    for (const t of ["tracks", "matches", "participations", "fighters", "boards", "news"]) {
+      const { error } = await supabaseAdmin.from(t).delete().neq("id", "__never__");
       if (error) throw new Error(`${t} delete: ` + error.message);
     }
 
@@ -163,6 +157,50 @@ export async function PUT(req: NextRequest) {
         }))
       );
       if (error) throw new Error("news insert: " + error.message);
+    }
+
+    // 4. Начисляем очки за завершённые матчи
+    //    (матчи, которые были удалены при пересборке — CASCADE удалил их ставки,
+    //     а те, что остались — если completed + winner_team, обрабатываем)
+    if (matches?.length) {
+      const completedIds = matches
+        .filter((m: any) => m.status === "completed" && m.winnerTeam !== null)
+        .map((m: any) => m.id);
+
+      if (completedIds.length > 0) {
+        const { data: pendingBets } = await supabaseAdmin
+          .from("bets")
+          .select("id, user_id, match_id, team, coeff")
+          .eq("processed", false)
+          .in("match_id", completedIds);
+
+        for (const bet of pendingBets ?? []) {
+          const match = matches.find((m: any) => m.id === bet.match_id);
+          if (!match) continue;
+          const won = bet.team === match.winnerTeam;
+          const delta = won
+            ? Math.round(100 * Number(bet.coeff))
+            : -100;
+
+          // Инкремент users.predictions
+          const { data: currentUser } = await supabaseAdmin
+            .from("users")
+            .select("predictions")
+            .eq("id", bet.user_id)
+            .single();
+          if (currentUser) {
+            await supabaseAdmin
+              .from("users")
+              .update({ predictions: (currentUser.predictions ?? 0) + delta })
+              .eq("id", bet.user_id);
+          }
+
+          await supabaseAdmin
+            .from("bets")
+            .update({ processed: true })
+            .eq("id", bet.id);
+        }
+      }
     }
 
     return NextResponse.json({ ok: true });

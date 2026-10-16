@@ -11,6 +11,7 @@ export async function GET() {
       { data: participations },
       { data: matches },
       { data: tracks },
+      { data: bets },
     ] = await Promise.all([
       supabaseAdmin.from("site_config").select("*").eq("id", 1).maybeSingle(),
       supabaseAdmin.from("news").select("*").order("sort_order"),
@@ -28,6 +29,7 @@ export async function GET() {
         .order("round")
         .order("position"),
       supabaseAdmin.from("tracks").select("*"),
+      supabaseAdmin.from("bets").select("*"),
     ]);
 
     return NextResponse.json({
@@ -90,6 +92,15 @@ export async function GET() {
         url: t.url,
         isPublished: t.is_published,
         score: t.score,
+      })),
+      bets: (bets ?? []).map((b) => ({
+        id: b.id,
+        userId: b.user_id,
+        matchId: b.match_id,
+        team: b.team,
+        coeff: Number(b.coeff),
+        points: b.points,
+        createdAt: b.created_at,
       })),
     });
   } catch (err) {
