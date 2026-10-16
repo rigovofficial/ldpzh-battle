@@ -239,7 +239,7 @@ export default function AdminOverlay({
               tracks={draftTracks}
               users={users}
               maintenance={draftMaintenance}
-              onImport={(data) => {
+              onImport={(data: any) => {
                 if (data.news) setDraftNews(data.news);
                 if (data.archive) setDraftArchive(data.archive);
                 if (data.style) setDraftStyle(data.style);
