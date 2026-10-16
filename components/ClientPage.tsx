@@ -286,50 +286,16 @@ export default function ClientPage({
               <NewsBanners items={data.news} />
               <ArchiveBanner config={data.archive} />
 
-              <section className="mb-8">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
-                  Турнирная сетка
-                </h2>
-                <Bracket
-                  matches={data.matches}
-                  fighters={data.fighters}
-                  currentUserId={currentUserId}
-                  role={role}
-                  style={data.style}
-                />
-              </section>
-
-              <MatchesSection
-                matches={data.matches}
-                bets={data.bets}
-                fighters={data.fighters}
-                role={role}
-                currentUserId={currentUserId}
-                onBet={placeBet}
-              />
-
-              <TracksSection
-                role={role}
-                currentUserId={currentUserId}
-                matches={data.matches}
-                fighters={data.fighters}
-                tracks={data.tracks}
-                onTrackSubmit={submitTrack}
-                onTogglePublish={togglePublish}
-              />
-
-              <section className="mb-8">
+                            <section className="mb-8">
                 <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
                   Другие разделы
                 </h2>
                 <div className="space-y-3">
-                  
-                  </div>
                   <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">
                     Ваше творчество / Оксимешапы — «Скоро всё будет, ЫЫЫ»
                   </div>
                   <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">
-                    Все должны зиговать
+                    Статистика предиктов — Лига Лудоманов / Премия Ванги
                   </div>
                 </div>
               </section>
