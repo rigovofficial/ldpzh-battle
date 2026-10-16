@@ -18,6 +18,10 @@ const toIntOrNull = (v: any): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.round(n) : null;
 };
+const toFloat = (v: any, fallback = 2.0): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 export async function PUT(req: NextRequest) {
   const token = await getSessionCookie();
@@ -37,66 +41,51 @@ export async function PUT(req: NextRequest) {
     maintenance,
     news,
     archive,
-    matches,
-    fighters,
-    tracks,
     style,
+    boards,
+    fighters,
+    participations,
+    matches,
+    tracks,
   } = body;
 
   try {
-    // 1. Конфиг сайта
-    const { error: configErr } = await supabaseAdmin
-      .from("site_config")
-      .update({ season, archive, style, maintenance: !!maintenance })
-      .eq("id", 1);
-    if (configErr) throw new Error("site_config: " + configErr.message);
-
-    // 2. bets — сначала, потому что FK на matches и fighters
+    // 1. site_config
     {
       const { error } = await supabaseAdmin
-        .from("bets")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      if (error) throw new Error("bets delete: " + error.message);
+        .from("site_config")
+        .update({ season, archive, style, maintenance: !!maintenance })
+        .eq("id", 1);
+      if (error) throw new Error("site_config: " + error.message);
     }
 
-    // 3. tracks — FK на matches и fighters
-    {
-      const { error } = await supabaseAdmin
-        .from("tracks")
-        .delete()
-        .neq("id", "__never__");
-      if (error) throw new Error("tracks delete: " + error.message);
+    // 2. Сносим в порядке FK
+    for (const t of ["bets", "tracks", "matches", "participations", "fighters", "boards", "news"]) {
+      const { error } =
+        t === "bets"
+          ? await supabaseAdmin
+              .from(t)
+              .delete()
+              .neq("id", "00000000-0000-0000-0000-000000000000")
+          : await supabaseAdmin.from(t).delete().neq("id", "__never__");
+      if (error) throw new Error(`${t} delete: ` + error.message);
     }
 
-    // 4. matches — FK на fighters
-    {
-      const { error } = await supabaseAdmin
-        .from("matches")
-        .delete()
-        .neq("id", "__never__");
-      if (error) throw new Error("matches delete: " + error.message);
+    // 3. Вставляем заново
+    if (boards?.length) {
+      const { error } = await supabaseAdmin.from("boards").insert(
+        boards.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          type: b.type,
+          status: b.status,
+          show_on_home: !!b.showOnHome,
+          sort_order: toInt(b.sortOrder),
+          slots: b.slots ?? null,
+        }))
+      );
+      if (error) throw new Error("boards insert: " + error.message);
     }
-
-    // 5. fighters
-    {
-      const { error } = await supabaseAdmin
-        .from("fighters")
-        .delete()
-        .neq("id", "__never__");
-      if (error) throw new Error("fighters delete: " + error.message);
-    }
-
-    // 6. news
-    {
-      const { error } = await supabaseAdmin
-        .from("news")
-        .delete()
-        .neq("id", "__never__");
-      if (error) throw new Error("news delete: " + error.message);
-    }
-
-    // --- вставляем заново ---
 
     if (fighters?.length) {
       const { error } = await supabaseAdmin.from("fighters").insert(
@@ -104,27 +93,42 @@ export async function PUT(req: NextRequest) {
           id: f.id,
           name: f.name,
           user_id: validUuid(f.userId),
-          prev_score: toInt(f.prevScore),
           total_score: toInt(f.totalScore),
         }))
       );
       if (error) throw new Error("fighters insert: " + error.message);
     }
 
+    if (participations?.length) {
+      const { error } = await supabaseAdmin.from("participations").insert(
+        participations.map((p: any) => ({
+          board_id: p.boardId,
+          fighter_id: p.fighterId,
+          prev_score: toInt(p.prevScore),
+          local_score: toInt(p.localScore),
+          seed: p.seed ?? null,
+        }))
+      );
+      if (error) throw new Error("participations insert: " + error.message);
+    }
+
     if (matches?.length) {
       const { error } = await supabaseAdmin.from("matches").insert(
         matches.map((m: any) => ({
           id: m.id,
+          board_id: m.boardId,
           round: toInt(m.round),
-          match_index: toInt(m.index),
-          fighter1: m.fighter1,
-          fighter2: m.fighter2,
+          position: toInt(m.position),
+          teams: m.teams,
+          is_fire: !!m.isFire,
+          is_final: !!m.isFinal,
           status: m.status,
-          odds1: m.odds1,
-          odds2: m.odds2,
+          odds1: toFloat(m.odds1),
+          odds2: toFloat(m.odds2),
           score1: toIntOrNull(m.score1),
           score2: toIntOrNull(m.score2),
-          winner: m.winner,
+          winner_team:
+            m.winnerTeam === 0 || m.winnerTeam === 1 ? m.winnerTeam : null,
         }))
       );
       if (error) throw new Error("matches insert: " + error.message);

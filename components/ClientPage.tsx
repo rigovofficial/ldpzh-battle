@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import TopBar from "./TopBar";
 import SeasonHeader from "./SeasonHeader";
 import NewsBanners from "./NewsBanners";
 import ArchiveBanner from "./ArchiveBanner";
+import BoardTabs from "./BoardTabs";
 import Bracket from "./Bracket";
 import MatchesSection from "./MatchesSection";
 import TracksSection from "./TracksSection";
 import AdminOverlay from "./AdminOverlay";
-import Footer from "./Footer";
 import MaintenancePage from "./MaintenancePage";
+import Footer from "./Footer";
 import { useAuth } from "@/lib/auth-context";
 import type {
   Match,
@@ -23,6 +24,8 @@ import type {
   User,
   Bet,
   StyleConfig,
+  Board,
+  Participation,
 } from "@/lib/types";
 
 type Role = "anonymous" | "user" | "participant" | "admin";
@@ -33,8 +36,10 @@ interface ServerData {
   archive: ArchiveConfig;
   style: StyleConfig;
   news: NewsItem[];
-  matches: Match[];
+  boards: Board[];
   fighters: Fighter[];
+  participations: Participation[];
+  matches: Match[];
   tracks: Track[];
 }
 
@@ -52,6 +57,7 @@ export default function ClientPage({
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -59,10 +65,15 @@ export default function ClientPage({
       if (!res.ok) throw new Error("load failed");
       const json = await res.json();
       setData(json);
+      if (!activeBoardId && json.boards?.length) {
+        const firstVisible =
+          json.boards.find((b: Board) => b.showOnHome) ?? json.boards[0];
+        setActiveBoardId(firstVisible.id);
+      }
     } catch (err) {
       console.error(err);
     }
-  }, []);
+  }, [activeBoardId]);
 
   const reloadUsers = useCallback(async () => {
     if (role !== "admin") return;
@@ -80,15 +91,6 @@ export default function ClientPage({
     reload();
   }, [reload]);
 
-  // Если данные не пришли за 8 секунд — отправляем на /vpn
-  useEffect(() => {
-    if (data) return;
-    const timer = setTimeout(() => {
-      router.push("/vpn");
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [data, router]);
-
   useEffect(() => {
     if (adminOpen) reloadUsers();
   }, [adminOpen, reloadUsers]);
@@ -97,18 +99,56 @@ export default function ClientPage({
     if (role !== "admin") setAdminOpen(false);
   }, [role]);
 
-  function placeBet(matchId: string, fighterId: string) {
+  // Таймаут — редирект на /vpn, если данных нет через 8 секунд
+  useEffect(() => {
+    if (data || maintenanceMode) return;
+    const timer = setTimeout(() => router.push("/vpn"), 8000);
+    return () => clearTimeout(timer);
+  }, [data, router, maintenanceMode]);
+
+  const visibleBoards = useMemo(() => {
+    if (!data) return [] as Board[];
+    if (role === "admin") return data.boards;
+    return data.boards.filter(
+      (b) => b.showOnHome && b.status !== "hidden" && b.status !== "draft"
+    );
+  }, [data, role]);
+
+  const activeBoard = useMemo(() => {
+    if (!data || !activeBoardId) return null;
+    return data.boards.find((b) => b.id === activeBoardId) ?? null;
+  }, [data, activeBoardId]);
+
+  const boardMatches = useMemo(() => {
+    if (!data || !activeBoard) return [] as Match[];
+    return data.matches.filter((m) => m.boardId === activeBoard.id);
+  }, [data, activeBoard]);
+
+  const boardFighters = useMemo(() => {
+    if (!data || !activeBoard) return [] as Fighter[];
+    const ids = new Set(
+      data.participations
+        .filter((p) => p.boardId === activeBoard.id)
+        .map((p) => p.fighterId)
+    );
+    return data.fighters.filter((f) => ids.has(f.id));
+  }, [data, activeBoard]);
+
+  const boardTracks = useMemo(() => {
+    if (!data || !activeBoard) return [] as Track[];
+    const matchIds = new Set(boardMatches.map((m) => m.id));
+    return data.tracks.filter((t) => matchIds.has(t.matchId));
+  }, [data, activeBoard, boardMatches]);
+
+  function placeBet(matchId: string, team: 0 | 1) {
     if (!data) return;
     const m = data.matches.find((x) => x.id === matchId);
     if (!m || m.status !== "betting_open") return;
     if (bets.some((b) => b.userId === currentUserId && b.matchId === matchId))
       return;
 
-    const coeff = fighterId === m.fighter1 ? m.odds1 : m.odds2;
-    setBets((prev) => [
-      ...prev,
-      { userId: currentUserId, matchId, fighterId, coeff },
-    ]);
+    const coeff = team === 0 ? m.odds1 : m.odds2;
+    setBets((prev) => [...prev, { userId: currentUserId, matchId, team, coeff }]);
 
     setData((prev) =>
       !prev
@@ -117,7 +157,7 @@ export default function ClientPage({
             ...prev,
             matches: prev.matches.map((x) => {
               if (x.id !== matchId) return x;
-              if (fighterId === x.fighter1) {
+              if (team === 0) {
                 return {
                   ...x,
                   odds1: Math.max(1.01, +(x.odds1 - 0.06).toFixed(2)),
@@ -136,9 +176,15 @@ export default function ClientPage({
 
   function submitTrack(matchId: string, url: string) {
     if (!data) return;
-    const myFighters = data.fighters.filter((f) => f.userId === currentUserId);
-    if (myFighters.length === 0) return;
-    const myFighter = myFighters[0];
+    const myIds = new Set(
+      data.fighters.filter((f) => f.userId === currentUserId).map((f) => f.id)
+    );
+    const match = data.matches.find((m) => m.id === matchId);
+    if (!match) return;
+    const myFid = match.teams
+      .flatMap((t) => t.fighterIds)
+      .find((id) => myIds.has(id));
+    if (!myFid) return;
     setData((prev) =>
       !prev
         ? prev
@@ -149,7 +195,7 @@ export default function ClientPage({
               {
                 id: "t_" + Date.now(),
                 matchId,
-                fighterId: myFighter.id,
+                fighterId: myFid,
                 url,
                 isPublished: false,
                 score: null,
@@ -179,15 +225,13 @@ export default function ClientPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       const text = await res.text();
       let json: any = {};
       try {
         json = JSON.parse(text);
       } catch {
-        json = { error: text || "Пустой ответ сервера" };
+        json = { error: text || "Пустой ответ" };
       }
-
       if (!res.ok) {
         alert(
           "Не удалось сохранить (" +
@@ -197,7 +241,6 @@ export default function ClientPage({
         );
         return;
       }
-
       await reload();
       if (role === "admin") await reloadUsers();
       alert("Сохранено!");
@@ -236,10 +279,7 @@ export default function ClientPage({
     await reloadUsers();
   }
 
-  
-
-  // Если включён глобальный режим заглушки — админ видит сайт, остальные видят MaintenancePage.
-  // Пока роль не известна (идёт загрузка сессии) — нейтральный экран «Загрузка...».
+  // Режим глобальной заглушки: админ видит сайт, остальные — заглушку
   if (maintenanceMode) {
     if (!user) {
       return (
@@ -266,6 +306,7 @@ export default function ClientPage({
       </>
     );
   }
+
   const showMaintenance = data.maintenance && role !== "admin";
 
   return (
@@ -274,13 +315,14 @@ export default function ClientPage({
         <AdminOverlay
           news={data.news}
           archive={data.archive}
-          matches={data.matches}
-          fighters={data.fighters}
-          users={adminUsers}
-          season={data.season}
-          maintenance={data.maintenance}
-          tracks={data.tracks}
           style={data.style}
+          boards={data.boards}
+          fighters={data.fighters}
+          participations={data.participations}
+          matches={data.matches}
+          tracks={data.tracks}
+          users={adminUsers}
+          maintenance={data.maintenance}
           onSave={saveAdmin}
           onDeleteUser={deleteUser}
           onPatchUser={patchUser}
@@ -302,40 +344,58 @@ export default function ClientPage({
           ) : (
             <>
               <SeasonHeader season={data.season} />
+
               <NewsBanners items={data.news} />
+
               <ArchiveBanner config={data.archive} />
 
-              <section className="mb-8">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
-                  Турнирная сетка
-                </h2>
-                <Bracket
-                  matches={data.matches}
-                  fighters={data.fighters}
-                  currentUserId={currentUserId}
-                  role={role}
-                  style={data.style}
-                />
-              </section>
-
-              <MatchesSection
-                matches={data.matches}
-                bets={bets}
-                fighters={data.fighters}
-                role={role}
-                currentUserId={currentUserId}
-                onBet={placeBet}
+              <BoardTabs
+                boards={visibleBoards}
+                activeId={activeBoardId ?? ""}
+                onChange={setActiveBoardId}
               />
 
-              <TracksSection
-                role={role}
-                currentUserId={currentUserId}
-                matches={data.matches}
-                fighters={data.fighters}
-                tracks={data.tracks}
-                onTrackSubmit={submitTrack}
-                onTogglePublish={togglePublish}
-              />
+              {!activeBoard && (
+                <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic mb-8">
+                  Нет доступных сеток.
+                </div>
+              )}
+
+              {activeBoard && (
+                <>
+                  <section className="mb-8">
+                    <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
+                      Турнирная сетка · {activeBoard.title}
+                    </h2>
+                    <Bracket
+                      matches={boardMatches}
+                      fighters={data.fighters}
+                      currentUserId={currentUserId}
+                      role={role}
+                      style={data.style}
+                    />
+                  </section>
+
+                  <MatchesSection
+                    matches={boardMatches}
+                    bets={bets}
+                    fighters={data.fighters}
+                    role={role}
+                    currentUserId={currentUserId}
+                    onBet={placeBet}
+                  />
+
+                  <TracksSection
+                    role={role}
+                    currentUserId={currentUserId}
+                    matches={boardMatches}
+                    fighters={data.fighters}
+                    tracks={boardTracks}
+                    onTrackSubmit={submitTrack}
+                    onTogglePublish={togglePublish}
+                  />
+                </>
+              )}
 
               <section className="mb-8">
                 <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">

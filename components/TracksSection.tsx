@@ -24,30 +24,44 @@ export default function TracksSection({
 }) {
   const [urlInput, setUrlInput] = useState("");
 
-  const myFighter = fighters.find((f) => f.userId === currentUserId);
-  const openMatch =
-    role === "participant" && myFighter
+  const myFighterIds = new Set(
+    fighters.filter((f) => f.userId === currentUserId).map((f) => f.id)
+  );
+
+  // Ищем матч с открытым приёмом, где участвует один из моих ников
+  const myOpenMatch =
+    role === "participant" && myFighterIds.size > 0
       ? matches.find(
           (m) =>
-            (m.fighter1 === myFighter.id || m.fighter2 === myFighter.id) &&
-            m.status === "tracks_open"
+            m.status === "tracks_open" &&
+            m.teams.some((t) => t.fighterIds.some((id) => myFighterIds.has(id)))
         )
       : null;
+
+  const myFighterInMatch = myOpenMatch
+    ? myOpenMatch.teams
+        .flatMap((t) => t.fighterIds)
+        .find((id) => myFighterIds.has(id)) ?? null
+    : null;
 
   const myExistingTrack =
-    myFighter && openMatch
+    myOpenMatch && myFighterInMatch
       ? tracks.find(
-          (t) => t.matchId === openMatch.id && t.fighterId === myFighter.id
+          (t) => t.matchId === myOpenMatch.id && t.fighterId === myFighterInMatch
         )
       : null;
 
-  const canSubmit = !!openMatch && !myExistingTrack;
+  const canSubmit = !!myOpenMatch && !myExistingTrack && !!myFighterInMatch;
 
   const visibleTracks = tracks.filter((t) => {
     if (role === "admin") return true;
-    if (myFighter && t.fighterId === myFighter.id) return true;
+    if (myFighterIds.has(t.fighterId)) return true;
     return t.isPublished;
   });
+
+  function nameOf(fid: string) {
+    return fighters.find((f) => f.id === fid)?.name ?? "?";
+  }
 
   return (
     <section className="mb-8">
@@ -55,10 +69,11 @@ export default function TracksSection({
         Треки
       </h2>
 
-      {role === "participant" && openMatch && canSubmit && (
+      {role === "participant" && myOpenMatch && canSubmit && (
         <div className="mb-4 p-4 bg-[#1d1d27] rounded-xl">
           <div className="text-[13px] text-[#9aa0a6] mb-3">
-            Матч: раунд {openMatch.round}, матч {openMatch.index} — приём треков открыт
+            Матч: раунд {myOpenMatch.round}, матч {myOpenMatch.position} — приём
+            треков открыт
           </div>
           <div className="flex gap-2 flex-wrap">
             <input
@@ -72,7 +87,7 @@ export default function TracksSection({
               onClick={() => {
                 const url = urlInput.trim();
                 if (!url) return;
-                onTrackSubmit(openMatch.id, url);
+                onTrackSubmit(myOpenMatch.id, url);
                 setUrlInput("");
               }}
               className="px-4 py-2.5 rounded-lg border-none bg-[#8b0033] text-white font-bold cursor-pointer hover:opacity-85"
@@ -83,7 +98,7 @@ export default function TracksSection({
         </div>
       )}
 
-      {role === "participant" && openMatch && myExistingTrack && (
+      {role === "participant" && myOpenMatch && myExistingTrack && (
         <div className="mb-4 p-4 bg-[#1d1d27] rounded-xl text-[13px]">
           Твой трек сдан:{" "}
           <a
@@ -102,7 +117,7 @@ export default function TracksSection({
         </div>
       )}
 
-      {role === "participant" && !openMatch && (
+      {role === "participant" && !myOpenMatch && (
         <div className="mb-4 p-3 border-2 border-[#ff2b2b] rounded-xl text-[#ff2b2b] text-center text-[13px] bg-[rgba(255,43,43,0.08)]">
           Сейчас у тебя нет матча с открытым приёмом треков.
         </div>
@@ -120,65 +135,44 @@ export default function TracksSection({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {visibleTracks.map((t) => (
-            <TrackItem
-              key={t.id}
-              track={t}
-              role={role}
-              fighters={fighters}
-              onToggle={() => onTogglePublish(t.id)}
-            />
-          ))}
+          {visibleTracks.map((t) => {
+            const borderCls = t.isPublished
+              ? "border-l-[3px] border-l-[#35d07f]"
+              : "border-l-[3px] border-l-[#ffb020]";
+            return (
+              <div
+                key={t.id}
+                className={`bg-[#1d1d27] rounded-lg px-4 py-3 flex justify-between items-center gap-3 flex-wrap text-[13px] ${borderCls}`}
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-bold">{nameOf(t.fighterId)}</span>
+                  <span className="text-[#9aa0a6] text-[11px] uppercase tracking-wide">
+                    {t.isPublished ? "Опубликован" : "Скрыт"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={t.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#00a3ff] underline"
+                  >
+                    ▶ открыть
+                  </a>
+                  {role === "admin" && (
+                    <button
+                      onClick={() => onTogglePublish(t.id)}
+                      className="px-3 py-1.5 rounded-lg border-none bg-[#8b0033] text-white font-bold cursor-pointer text-xs hover:opacity-85"
+                    >
+                      {t.isPublished ? "Скрыть" : "Опубликовать"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </section>
-  );
-}
-
-function TrackItem({
-  track,
-  role,
-  fighters,
-  onToggle,
-}: {
-  track: Track;
-  role: Role;
-  fighters: Fighter[];
-  onToggle: () => void;
-}) {
-  const fighter = fighters.find((f) => f.id === track.fighterId);
-  const borderCls = track.isPublished
-    ? "border-l-[3px] border-l-[#35d07f]"
-    : "border-l-[3px] border-l-[#ffb020]";
-
-  return (
-    <div
-      className={`bg-[#1d1d27] rounded-lg px-4 py-3 flex justify-between items-center gap-3 flex-wrap text-[13px] ${borderCls}`}
-    >
-      <div className="flex flex-col gap-0.5">
-        <span className="font-bold">{fighter?.name ?? "—"}</span>
-        <span className="text-[#9aa0a6] text-[11px] uppercase tracking-wide">
-          {track.isPublished ? "Опубликован" : "Скрыт"}
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        <a
-          href={track.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[#00a3ff] underline"
-        >
-          ▶ открыть
-        </a>
-        {role === "admin" && (
-          <button
-            onClick={onToggle}
-            className="px-3 py-1.5 rounded-lg border-none bg-[#8b0033] text-white font-bold cursor-pointer text-xs hover:opacity-85"
-          >
-            {track.isPublished ? "Скрыть" : "Опубликовать"}
-          </button>
-        )}
-      </div>
-    </div>
   );
 }

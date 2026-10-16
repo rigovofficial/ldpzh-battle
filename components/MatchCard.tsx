@@ -15,14 +15,19 @@ export default function MatchCard({
   currentUserId: string;
   bets: Bet[];
   fighters: Fighter[];
-  onBet: (fighterId: string) => void;
+  onBet: (team: 0 | 1) => void;
 }) {
-  const f1 = match.fighter1
-    ? fighters.find((f) => f.id === match.fighter1)
-    : null;
-  const f2 = match.fighter2
-    ? fighters.find((f) => f.id === match.fighter2)
-    : null;
+  const teamLabel = (idx: 0 | 1) => {
+    const t = match.teams[idx];
+    if (t.name) return t.name;
+    if (t.fighterIds.length === 0) return "— TBD —";
+    return t.fighterIds
+      .map((id) => fighters.find((f) => f.id === id)?.name ?? "?")
+      .join(" + ");
+  };
+
+  const label1 = teamLabel(0);
+  const label2 = teamLabel(1);
 
   const statusText: Record<Match["status"], string> = {
     pending: "ОЖИДАНИЕ",
@@ -40,25 +45,31 @@ export default function MatchCard({
   };
 
   const myBet = bets.find((b) => b.userId === currentUserId);
-  const votedFighter = myBet
-    ? fighters.find((f) => f.id === myBet.fighterId)
-    : null;
+  const votedTeam = myBet ? (myBet.team === 0 ? label1 : label2) : null;
 
-  const votes1 = bets.filter((b) => b.fighterId === match.fighter1).length;
-  const votes2 = bets.filter((b) => b.fighterId === match.fighter2).length;
+  const votes1 = bets.filter((b) => b.team === 0).length;
+  const votes2 = bets.filter((b) => b.team === 1).length;
 
   const canBet =
     match.status === "betting_open" &&
     (role === "user" || role === "admin") &&
     !myBet &&
-    !!f1 &&
-    !!f2;
+    match.teams[0].fighterIds.length > 0 &&
+    match.teams[1].fighterIds.length > 0;
+
+  const cardCls = match.isFire
+    ? "border-2 border-[#ff6a00] shadow-[0_0_18px_rgba(255,106,0,0.4)] bg-gradient-to-br from-[#14141c] to-[#2a1200]"
+    : match.isFinal
+    ? "border-2 border-[#ffd166] shadow-[0_0_18px_rgba(255,209,102,0.35)] bg-gradient-to-br from-[#14141c] to-[#2a1f00]"
+    : "border border-[#00a3ff]";
 
   return (
-    <div className="bg-[#14141c] border border-[#00a3ff] rounded-2xl p-5">
+    <div className={`rounded-2xl p-5 ${cardCls}`}>
       <div className="flex justify-between items-center text-[11px] uppercase tracking-widest text-[#9aa0a6] mb-4">
-        <span>
-          Раунд {match.round} · Матч {match.index}
+        <span className="flex items-center gap-2">
+          {match.isFire && <span>🔥 ОГНЕННЫЙ</span>}
+          {match.isFinal && !match.isFire && <span>🏆 ФИНАЛ</span>}
+          Раунд {match.round} · Матч {match.position}
         </span>
         <span
           className={`px-2.5 py-1 rounded-full font-extrabold ${statusCls[match.status]}`}
@@ -69,18 +80,14 @@ export default function MatchCard({
 
       <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
         <div className="bg-[#1d1d27] rounded-xl p-4 text-center">
-          <div className="font-bold text-[15px] mb-1.5">
-            {f1 ? f1.name : "— TBD —"}
-          </div>
+          <div className="font-bold text-[15px] mb-1.5">{label1}</div>
           <div className="text-[#00a3ff] text-[22px] font-black">
             {match.odds1.toFixed(2)}
           </div>
         </div>
         <div className="text-[#9aa0a6] font-black">VS</div>
         <div className="bg-[#1d1d27] rounded-xl p-4 text-center">
-          <div className="font-bold text-[15px] mb-1.5">
-            {f2 ? f2.name : "— TBD —"}
-          </div>
+          <div className="font-bold text-[15px] mb-1.5">{label2}</div>
           <div className="text-[#00a3ff] text-[22px] font-black">
             {match.odds2.toFixed(2)}
           </div>
@@ -99,11 +106,10 @@ export default function MatchCard({
               Участникам запрещено ставить на матчи
             </div>
           )}
-          {(role === "user" || role === "admin") && myBet && votedFighter && (
+          {(role === "user" || role === "admin") && myBet && votedTeam && (
             <div className="mt-4 p-3 bg-[#1d1d27] rounded-xl text-[13px] text-[#9aa0a6]">
               <div>
-                Твоя ставка:{" "}
-                <strong className="text-white">{votedFighter.name}</strong>
+                Твоя ставка: <strong className="text-white">{votedTeam}</strong>
               </div>
               <div>
                 Кэф на момент ставки:{" "}
@@ -114,16 +120,16 @@ export default function MatchCard({
           {canBet && (
             <div className="grid grid-cols-2 gap-2.5 mt-4">
               <button
-                onClick={() => match.fighter1 && onBet(match.fighter1)}
+                onClick={() => onBet(0)}
                 className="py-3 rounded-xl border-none font-bold bg-[#8b0033] text-white cursor-pointer hover:opacity-85"
               >
-                Ставка на {f1?.name}
+                Ставка на {label1}
               </button>
               <button
-                onClick={() => match.fighter2 && onBet(match.fighter2)}
+                onClick={() => onBet(1)}
                 className="py-3 rounded-xl border-none font-bold bg-[#8b0033] text-white cursor-pointer hover:opacity-85"
               >
-                Ставка на {f2?.name}
+                Ставка на {label2}
               </button>
             </div>
           )}
@@ -131,9 +137,8 @@ export default function MatchCard({
       )}
 
       <div className="mt-4 p-3 bg-[#1d1d27] rounded-xl text-[13px] text-[#9aa0a6]">
-        Голоса: {f1?.name ?? "—"} —{" "}
-        <strong className="text-white">{votes1}</strong>, {f2?.name ?? "—"} —{" "}
-        <strong className="text-white">{votes2}</strong>. Кэфы:{" "}
+        Голоса: {label1} — <strong className="text-white">{votes1}</strong>,{" "}
+        {label2} — <strong className="text-white">{votes2}</strong>. Кэфы:{" "}
         {match.odds1.toFixed(2)} / {match.odds2.toFixed(2)}
       </div>
     </div>

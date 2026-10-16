@@ -1,42 +1,59 @@
-// ============================================================
-// РОЛИ И СТАТУСЫ
-// ============================================================
-
 export type UserRole = "anonymous" | "user" | "participant" | "admin";
-
 export type MatchStatus =
   | "pending"
   | "betting_open"
   | "tracks_open"
   | "judging"
   | "completed";
-
 export type SeasonType = "official" | "intermediate";
+export type BoardType = "standard" | "free";
+export type BoardStatus = "draft" | "active" | "archived" | "hidden";
 
-// ============================================================
-// ОСНОВНЫЕ СУЩНОСТИ
-// ============================================================
-
-export interface Fighter {
-  id: string;
-  name: string;
-  userId: string | null;
-  prevScore: number;
-  totalScore: number;
+export interface Team {
+  name: string | null;
+  fighterIds: string[];
 }
 
 export interface Match {
   id: string;
+  boardId: string;
   round: number;
-  index: number;
-  fighter1: string | null;
-  fighter2: string | null;
+  position: number;
+  teams: Team[];
+  isFire: boolean;
+  isFinal: boolean;
   status: MatchStatus;
   odds1: number;
   odds2: number;
   score1: number | null;
   score2: number | null;
-  winner: string | null;
+  winnerTeam: 0 | 1 | null;
+}
+
+export interface Board {
+  id: string;
+  title: string;
+  type: BoardType;
+  status: BoardStatus;
+  showOnHome: boolean;
+  sortOrder: number;
+  slots: number | null;
+}
+
+export interface Fighter {
+  id: string;
+  name: string;
+  userId: string | null;
+  totalScore: number;
+}
+
+export interface Participation {
+  id: string;
+  boardId: string;
+  fighterId: string;
+  prevScore: number;
+  localScore: number;
+  seed: number | null;
 }
 
 export interface Season {
@@ -56,9 +73,20 @@ export interface Track {
   score: number | null;
 }
 
-// ============================================================
-// НОВОСТИ И АРХИВ
-// ============================================================
+export interface Bet {
+  userId: string;
+  matchId: string;
+  team: 0 | 1;
+  coeff: number;
+}
+
+export interface User {
+  id: string;
+  login: string;
+  displayName: string;
+  role: UserRole;
+  battleNickname: string | null;
+}
 
 export interface NewsItem {
   id: string;
@@ -77,23 +105,11 @@ export interface ArchiveConfig {
   subtitle: string;
   url: string;
 }
-export interface Bet {
-  userId: string;
-  matchId: string;
-  fighterId: string;
-  coeff: number;
-}
-export interface User {
-  id: string;
-  login: string;
-  displayName: string;
-  role: UserRole;
-  battleNickname: string | null;
-}
+
 export interface StyleConfig {
   primary: string;
   accent: string;
-  grayscale: number; // 0 | 1
+  grayscale: number;
   participantActive: string;
   participantWin: string;
   participantLoss: string;

@@ -16,7 +16,7 @@ export default function MatchesSection({
   fighters: Fighter[];
   role: Role;
   currentUserId: string;
-  onBet: (matchId: string, fighterId: string) => void;
+  onBet: (matchId: string, team: 0 | 1) => void;
 }) {
   const visibleMatches = matches.filter((m) =>
     ["betting_open", "tracks_open", "judging", "completed"].includes(m.status)
@@ -42,7 +42,7 @@ export default function MatchesSection({
               currentUserId={currentUserId}
               bets={bets.filter((b) => b.matchId === m.id)}
               fighters={fighters}
-              onBet={(fighterId) => onBet(m.id, fighterId)}
+              onBet={(team) => onBet(m.id, team)}
             />
           ))}
         </div>
