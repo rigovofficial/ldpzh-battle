@@ -1,32 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import TopBar from "./TopBar";
 import SeasonHeader from "./SeasonHeader";
 import NewsBanners from "./NewsBanners";
 import ArchiveBanner from "./ArchiveBanner";
-import BoardTabs from "./BoardTabs";
 import Bracket from "./Bracket";
 import MatchesSection from "./MatchesSection";
 import TracksSection from "./TracksSection";
 import AdminOverlay from "./AdminOverlay";
-import MaintenancePage from "./MaintenancePage";
 import Footer from "./Footer";
 import { useAuth } from "@/lib/auth-context";
-import type {
-  Match,
-  Track,
-  NewsItem,
-  ArchiveConfig,
-  Fighter,
-  Season,
-  User,
-  Bet,
-  StyleConfig,
-  Board,
-  Participation,
-} from "@/lib/types";
+import type { Match, Track, NewsItem, ArchiveConfig, Fighter, Season, User, Bet, StyleConfig } from "@/lib/types";
 
 type Role = "anonymous" | "user" | "participant" | "admin";
 
@@ -36,351 +21,166 @@ interface ServerData {
   archive: ArchiveConfig;
   style: StyleConfig;
   news: NewsItem[];
-  boards: Board[];
-  fighters: Fighter[];
-  participations: Participation[];
   matches: Match[];
+  fighters: Fighter[];
   tracks: Track[];
-  bets: Bet[];
+  registrations: any[];
 }
 
-export default function ClientPage({
-  maintenanceMode = false,
-}: {
-  maintenanceMode?: boolean;
-}) {
-  const router = useRouter();
+export default function ClientPage() {
   const { user } = useAuth();
   const role: Role = (user?.role as Role) ?? "anonymous";
   const currentUserId = user?.id ?? "anon";
 
   const [data, setData] = useState<ServerData | null>(null);
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
+  const [bets, setBets] = useState<any[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  
+  const [regNickname, setRegNickname] = useState("");
+  const [regStatus, setRegStatus] = useState<"idle" | "success" | "error">("idle");
 
   const reload = useCallback(async () => {
     try {
-      const res = await fetch("/api/data", { cache: "no-store" });
-      if (!res.ok) throw new Error("load failed");
-      const json = await res.json();
-      setData(json);
-      if (!activeBoardId && json.boards?.length) {
-        const firstVisible =
-          json.boards.find((b: Board) => b.showOnHome) ?? json.boards[0];
-        setActiveBoardId(firstVisible.id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [activeBoardId]);
+      const [resData, resBets] = await Promise.all([
+        fetch("/api/data", { cache: "no-store" }),
+        fetch("/api/bets", { cache: "no-store" })
+      ]);
+      const jsonData = await resData.json();
+      const jsonBets = await resBets.json();
+      setData(jsonData);
+      setBets(jsonBets.bets || []);
+    } catch (err) { console.error(err); }
+  }, []);
 
   const reloadUsers = useCallback(async () => {
     if (role !== "admin") return;
-    try {
-      const res = await fetch("/api/admin/users", { cache: "no-store" });
-      if (!res.ok) return;
-      const json = await res.json();
-      setAdminUsers(json.users ?? []);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [role]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  useEffect(() => {
-    if (adminOpen) reloadUsers();
-  }, [adminOpen, reloadUsers]);
-
-  useEffect(() => {
-    if (role !== "admin") setAdminOpen(false);
-  }, [role]);
-
-  // Таймаут — редирект на /vpn, если данных нет за 8 сек
-  useEffect(() => {
-    if (data || maintenanceMode) return;
-    const timer = setTimeout(() => router.push("/vpn"), 8000);
-    return () => clearTimeout(timer);
-  }, [data, router, maintenanceMode]);
-
-  const visibleBoards = useMemo(() => {
-    if (!data) return [] as Board[];
-    if (role === "admin") return data.boards;
-    return data.boards.filter(
-      (b) => b.showOnHome && b.status !== "hidden" && b.status !== "draft"
-    );
-  }, [data, role]);
-
-  const activeBoard = useMemo(() => {
-    if (!data || !activeBoardId) return null;
-    return data.boards.find((b) => b.id === activeBoardId) ?? null;
-  }, [data, activeBoardId]);
-
-  const boardMatches = useMemo(() => {
-    if (!data || !activeBoard) return [] as Match[];
-    return data.matches.filter((m) => m.boardId === activeBoard.id);
-  }, [data, activeBoard]);
-
-  const boardTracks = useMemo(() => {
-    if (!data || !activeBoard) return [] as Track[];
-    const matchIds = new Set(boardMatches.map((m) => m.id));
-    return data.tracks.filter((t) => matchIds.has(t.matchId));
-  }, [data, activeBoard, boardMatches]);
-
-  async function placeBet(matchId: string, team: 0 | 1) {
-    try {
-      const res = await fetch("/api/bets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, team }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        alert(json.error ?? "Не удалось сделать ставку");
-        return;
-      }
-      await reload();
-    } catch {
-      alert("Сетевая ошибка");
-    }
-  }
-
-  function submitTrack(matchId: string, url: string) {
-    if (!data) return;
-    const myIds = new Set(
-      data.fighters.filter((f) => f.userId === currentUserId).map((f) => f.id)
-    );
-    const match = data.matches.find((m) => m.id === matchId);
-    if (!match) return;
-    const myFid = match.teams
-      .flatMap((t) => t.fighterIds)
-      .find((id) => myIds.has(id));
-    if (!myFid) return;
-    setData((prev) =>
-      !prev
-        ? prev
-        : {
-            ...prev,
-            tracks: [
-              ...prev.tracks,
-              {
-                id: "t_" + Date.now(),
-                matchId,
-                fighterId: myFid,
-                url,
-                isPublished: false,
-                score: null,
-              },
-            ],
-          }
-    );
-  }
-
-  function togglePublish(trackId: string) {
-    setData((prev) =>
-      !prev
-        ? prev
-        : {
-            ...prev,
-            tracks: prev.tracks.map((t) =>
-              t.id === trackId ? { ...t, isPublished: !t.isPublished } : t
-            ),
-          }
-    );
-  }
-
-  async function saveAdmin(payload: any) {
-    try {
-      const res = await fetch("/api/admin/save", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const text = await res.text();
-      let json: any = {};
-      try {
-        json = JSON.parse(text);
-      } catch {
-        json = { error: text || "Пустой ответ" };
-      }
-      if (!res.ok) {
-        alert(
-          "Не удалось сохранить (" +
-            res.status +
-            "):\n\n" +
-            (json.error ?? "неизвестная ошибка")
-        );
-        return;
-      }
-      await reload();
-      if (role === "admin") await reloadUsers();
-      alert("Сохранено!");
-    } catch (err) {
-      alert(
-        "Сетевая ошибка:\n\n" +
-          (err instanceof Error ? err.message : "неизвестно")
-      );
-    }
-  }
-
-  async function deleteUser(userId: string) {
-    const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+    const res = await fetch("/api/admin/users", { cache: "no-store" });
     const json = await res.json();
-    if (!res.ok) {
-      alert("Не удалось удалить: " + (json.error ?? "ошибка"));
-      return;
-    }
-    await reloadUsers();
+    setAdminUsers(json.users ?? []);
+  }, [role]);
+
+  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { if (adminOpen) reloadUsers(); }, [adminOpen, reloadUsers]);
+  useEffect(() => { if (role !== "admin") setAdminOpen(false); }, [role]);
+
+  async function handleRegister() {
+    if (!regNickname.trim()) return;
+    const res = await fetch("/api/battle/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname: regNickname }),
+    });
+    if (res.ok) { setRegStatus("success"); reload(); }
+    else { setRegStatus("error"); }
+  }
+
+  async function placeBet(matchId: string, fighterId: string) {
+    const res = await fetch("/api/bets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, fighterId }),
+    });
+    if (res.ok) await reload();
+    else alert("Ошибка ставки");
+  }
+
+  async function submitTrack(matchId: string, url: string) {
+    const res = await fetch("/api/tracks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matchId, url }),
+    });
+    if (res.ok) await reload();
+    else alert("Ошибка отправки трека");
+  }
+
+  async function togglePublish(trackId: string, currentStatus: boolean) {
+    await fetch("/api/tracks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trackId, isPublished: !currentStatus }),
+    });
     await reload();
   }
 
-  async function patchUser(userId: string, patch: any) {
-    const res = await fetch(`/api/admin/users/${userId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      alert("Не удалось: " + (json.error ?? "ошибка"));
-      return;
-    }
-    await reloadUsers();
-  }
-
-  // Режим глобальной заглушки
-  if (maintenanceMode) {
-    if (!user) {
-      return (
-        <>
-          <TopBar onOpenAdmin={() => setAdminOpen(true)} />
-          <div className="min-h-screen flex items-center justify-center text-[#9aa0a6] bg-[#0b0b0f]">
-            Загрузка...
-          </div>
-        </>
-      );
-    }
-    if (role !== "admin") {
-      return <MaintenancePage />;
-    }
-  }
-
-  if (!data) {
-    return (
-      <>
-        <TopBar onOpenAdmin={() => setAdminOpen(true)} />
-        <div className="min-h-screen flex items-center justify-center text-[#9aa0a6] bg-[#0b0b0f]">
-          Загрузка...
-        </div>
-      </>
-    );
-  }
+  if (!data) return <div className="min-h-screen flex items-center justify-center text-white bg-[#0b0b0f]">Загрузка...</div>;
 
   const showMaintenance = data.maintenance && role !== "admin";
+  const myReg = data.registrations?.find((r: any) => r.user_id === currentUserId);
 
   return (
     <>
       {adminOpen && role === "admin" && (
         <AdminOverlay
-          news={data.news}
-          archive={data.archive}
-          style={data.style}
-          boards={data.boards}
-          fighters={data.fighters}
-          participations={data.participations}
-          matches={data.matches}
-          tracks={data.tracks}
-          users={adminUsers}
-          maintenance={data.maintenance}
-          onSave={saveAdmin}
-          onDeleteUser={deleteUser}
-          onPatchUser={patchUser}
+          news={data.news} archive={data.archive} matches={data.matches} fighters={data.fighters}
+          users={adminUsers} season={data.season} maintenance={data.maintenance}
+          tracks={data.tracks} style={data.style} registrations={data.registrations}
+          onSave={async (p) => {
+            const res = await fetch("/api/admin/save", { method: "PUT", body: JSON.stringify(p) });
+            if (!res.ok) { alert("Ошибка сохранения"); return; }
+            await reload(); await reloadUsers();
+            alert("Сохранено!");
+          }}
+          onDeleteUser={async (id) => {
+            await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+            await reloadUsers(); await reload();
+          }}
+          onPatchUser={async (id, p) => {
+            await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) });
+            await reloadUsers();
+          }}
+          onApproveReg={async (regId, userId, nickname) => {
+            await fetch("/api/admin/approve", { method: "POST", body: JSON.stringify({ regId, userId, nickname }) });
+            await reload(); await reloadUsers();
+          }}
           onClose={() => setAdminOpen(false)}
         />
       )}
 
       <TopBar onOpenAdmin={() => setAdminOpen(true)} />
 
-      <main
-        className="min-h-screen bg-[#0b0b0f] text-[#f5f5f5]"
-        style={{ filter: `grayscale(${data.style.grayscale})` }}
-      >
+      <main className="min-h-screen bg-[#0b0b0f] text-[#f5f5f5]" style={{ filter: `grayscale(${data.style.grayscale})` }}>
         <div className="max-w-[1180px] mx-auto p-4">
           {showMaintenance ? (
-            <div className="bg-[#ff2b2b] text-white text-center p-4 rounded-xl font-bold my-8">
-              🛠 САЙТ НА ТЕХРАБОТАХ. ЗАХОДИ ПОЗЖЕ, БРО.
-            </div>
+            <div className="bg-[#ff2b2b] text-white text-center p-4 rounded-xl font-bold my-8">🛠 САЙТ НА ТЕХРАБОТАХ.</div>
           ) : (
             <>
               <SeasonHeader season={data.season} />
               <NewsBanners items={data.news} />
               <ArchiveBanner config={data.archive} />
 
-              <BoardTabs
-                boards={visibleBoards}
-                activeId={activeBoardId ?? ""}
-                onChange={setActiveBoardId}
-              />
-
-              {!activeBoard && (
-                <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic mb-8">
-                  Нет доступных сеток.
+              {/* Запись на батл */}
+              {role === "user" && data.season?.registration?.enabled && !myReg && regStatus !== "success" && (
+                <div className="mb-8 p-4 bg-[#14141c] border border-[#00a3ff] rounded-xl flex flex-col md:flex-row items-center gap-4">
+                  <input
+                    type="text" placeholder="Твой боевой ник" value={regNickname}
+                    onChange={(e) => setRegNickname(e.target.value)}
+                    className="flex-1 bg-[#1d1d27] text-white border border-[#333] rounded-lg px-4 py-3 outline-none focus:border-[#00a3ff]"
+                  />
+                  <button
+                    onClick={handleRegister}
+                    style={{ backgroundColor: data.season.registration.buttonColor }}
+                    className="text-white font-extrabold px-6 py-3 rounded-lg hover:opacity-90 w-full md:w-auto"
+                  >
+                    {data.season.registration.buttonText}
+                  </button>
                 </div>
               )}
-
-              {activeBoard && (
-                <>
-                  <section className="mb-8">
-                    <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
-                      Турнирная сетка · {activeBoard.title}
-                    </h2>
-                    <Bracket
-                      matches={boardMatches}
-                      fighters={data.fighters}
-                      currentUserId={currentUserId}
-                      role={role}
-                      style={data.style}
-                    />
-                  </section>
-
-                  <MatchesSection
-                    matches={boardMatches}
-                    bets={data.bets}
-                    fighters={data.fighters}
-                    role={role}
-                    currentUserId={currentUserId}
-                    onBet={placeBet}
-                  />
-
-                  <TracksSection
-                    role={role}
-                    currentUserId={currentUserId}
-                    matches={boardMatches}
-                    fighters={data.fighters}
-                    tracks={boardTracks}
-                    onTrackSubmit={submitTrack}
-                    onTogglePublish={togglePublish}
-                  />
-                </>
+              {myReg && (
+                <div className="mb-8 p-4 bg-[#1d1d27] border border-[#35d07f] rounded-xl text-[#35d07f] text-center font-bold">
+                  Вы уже подали заявку как <span className="text-white">"{myReg.desired_nickname}"</span>. Ожидайте одобрения.
+                </div>
               )}
 
               <section className="mb-8">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
-                  Другие разделы
-                </h2>
-                <div className="space-y-3">
-                  <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">
-                    Ваше творчество / Оксимешапы — «Скоро всё будет, ЫЫЫ»
-                  </div>
-                  <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">
-                    Статистика предиктов — Лига Лудоманов / Премия Ванги
-                  </div>
-                </div>
+                <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Турнирная сетка</h2>
+                <Bracket matches={data.matches} fighters={data.fighters} currentUserId={currentUserId} role={role} style={data.style} />
               </section>
 
+              <MatchesSection matches={data.matches} bets={bets} fighters={data.fighters} role={role} currentUserId={currentUserId} onBet={placeBet} />
+              <TracksSection role={role} currentUserId={currentUserId} matches={data.matches} fighters={data.fighters} tracks={data.tracks} onTrackSubmit={submitTrack} onTogglePublish={(id) => togglePublish(id, data.tracks.find(t=>t.id===id)?.isPublished || false)} />
+              
               <Footer />
             </>
           )}

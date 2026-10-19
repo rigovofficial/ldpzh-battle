@@ -4,7 +4,15 @@
   --background: #ffffff;
   --foreground: #171717;
 }
-
+@keyframes fire-glow {
+  0% { box-shadow: 0 0 10px rgba(255, 69, 0, 0.5); }
+  50% { box-shadow: 0 0 25px rgba(255, 69, 0, 0.9); }
+  100% { box-shadow: 0 0 10px rgba(255, 69, 0, 0.5); }
+}
+.fire-border {
+  animation: fire-glow 1.5s infinite;
+  border: 2px solid #ff4500 !important;
+}
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

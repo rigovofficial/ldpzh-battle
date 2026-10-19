@@ -6,30 +6,17 @@ export async function GET() {
     const [
       { data: config },
       { data: news },
-      { data: boards },
-      { data: fighters },
-      { data: participations },
       { data: matches },
+      { data: fighters },
       { data: tracks },
-      { data: bets },
+      { data: registrations },
     ] = await Promise.all([
       supabaseAdmin.from("site_config").select("*").eq("id", 1).maybeSingle(),
       supabaseAdmin.from("news").select("*").order("sort_order"),
-      supabaseAdmin
-        .from("boards")
-        .select("*")
-        .order("sort_order")
-        .order("created_at"),
-      supabaseAdmin.from("fighters").select("*").order("created_at"),
-      supabaseAdmin.from("participations").select("*"),
-      supabaseAdmin
-        .from("matches")
-        .select("*")
-        .order("board_id")
-        .order("round")
-        .order("position"),
+      supabaseAdmin.from("matches").select("*").order("round").order("match_index"),
+      supabaseAdmin.from("fighters").select("*"),
       supabaseAdmin.from("tracks").select("*"),
-      supabaseAdmin.from("bets").select("*"),
+      supabaseAdmin.from("registrations").select("*").eq("status", "pending"),
     ]);
 
     return NextResponse.json({
@@ -47,43 +34,26 @@ export async function GET() {
         textColor: n.text_color,
         enabled: n.enabled,
       })),
-      boards: (boards ?? []).map((b) => ({
-        id: b.id,
-        title: b.title,
-        type: b.type,
-        status: b.status,
-        showOnHome: b.show_on_home,
-        sortOrder: b.sort_order,
-        slots: b.slots,
-      })),
-      fighters: (fighters ?? []).map((f) => ({
-        id: f.id,
-        name: f.name,
-        userId: f.user_id,
-        totalScore: f.total_score,
-      })),
-      participations: (participations ?? []).map((p) => ({
-        id: p.id,
-        boardId: p.board_id,
-        fighterId: p.fighter_id,
-        prevScore: p.prev_score,
-        localScore: p.local_score,
-        seed: p.seed,
-      })),
       matches: (matches ?? []).map((m) => ({
         id: m.id,
-        boardId: m.board_id,
         round: m.round,
-        position: m.position,
-        teams: m.teams,
-        isFire: m.is_fire,
-        isFinal: m.is_final,
+        index: m.match_index,
+        fighter1: m.fighter1,
+        fighter2: m.fighter2,
         status: m.status,
         odds1: Number(m.odds1),
         odds2: Number(m.odds2),
         score1: m.score1,
         score2: m.score2,
-        winnerTeam: m.winner_team,
+        winner: m.winner,
+        isFire: m.is_fire,
+      })),
+      fighters: (fighters ?? []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        userId: f.user_id,
+        prevScore: f.prev_score,
+        totalScore: f.total_score,
       })),
       tracks: (tracks ?? []).map((t) => ({
         id: t.id,
@@ -93,21 +63,10 @@ export async function GET() {
         isPublished: t.is_published,
         score: t.score,
       })),
-      bets: (bets ?? []).map((b) => ({
-        id: b.id,
-        userId: b.user_id,
-        matchId: b.match_id,
-        team: b.team,
-        coeff: Number(b.coeff),
-        points: b.points,
-        createdAt: b.created_at,
-      })),
+      registrations: registrations ?? [],
     });
   } catch (err) {
     console.error("Ошибка /api/data:", err);
-    return NextResponse.json(
-      { error: "Не удалось загрузить данные" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Не удалось загрузить" }, { status: 500 });
   }
 }
