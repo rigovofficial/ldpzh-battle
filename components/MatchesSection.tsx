@@ -4,46 +4,22 @@ import type { Match, Fighter, Bet } from "@/lib/types";
 type Role = "anonymous" | "user" | "participant" | "admin";
 
 export default function MatchesSection({
-  matches,
-  bets,
-  fighters,
-  role,
-  currentUserId,
-  onBet,
+  matches, bets, fighters, role, currentUserId, onBet,
 }: {
-  matches: Match[];
-  bets: Bet[];
-  fighters: Fighter[];
-  role: Role;
-  currentUserId: string;
-  onBet: (matchId: string, team: 0 | 1) => void;
+  matches: Match[]; bets: Bet[]; fighters: Fighter[]; role: Role;
+  currentUserId: string; onBet: (matchId: string, fighterId: string) => void;
 }) {
-  const visibleMatches = matches.filter((m) =>
-    ["betting_open", "tracks_open", "judging", "completed"].includes(m.status)
-  );
+  const visibleMatches = matches.filter((m) => ["betting_open", "tracks_open", "judging", "completed"].includes(m.status));
 
   return (
     <section className="mb-8">
-      <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">
-        Матчи и ставки
-      </h2>
-
+      <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Матчи и ставки</h2>
       {visibleMatches.length === 0 ? (
-        <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">
-          Сейчас доступных ставок на этот матч нет
-        </div>
+        <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">Сейчас доступных ставок нет</div>
       ) : (
         <div className="flex flex-col gap-4">
           {visibleMatches.map((m) => (
-            <MatchCard
-              key={m.id}
-              match={m}
-              role={role}
-              currentUserId={currentUserId}
-              bets={bets.filter((b) => b.matchId === m.id)}
-              fighters={fighters}
-              onBet={(team) => onBet(m.id, team)}
-            />
+            <MatchCard key={m.id} match={m} role={role} currentUserId={currentUserId} bets={bets.filter((b) => b.matchId === m.id)} fighters={fighters} onBet={(fighterId) => onBet(m.id, fighterId)} />
           ))}
         </div>
       )}

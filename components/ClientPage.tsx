@@ -16,15 +16,8 @@ import type { Match, Track, NewsItem, ArchiveConfig, Fighter, Season, User, Bet,
 type Role = "anonymous" | "user" | "participant" | "admin";
 
 interface ServerData {
-  season: Season;
-  maintenance: boolean;
-  archive: ArchiveConfig;
-  style: StyleConfig;
-  news: NewsItem[];
-  matches: Match[];
-  fighters: Fighter[];
-  tracks: Track[];
-  registrations: any[];
+  season: Season; maintenance: boolean; archive: ArchiveConfig; style: StyleConfig;
+  news: NewsItem[]; matches: Match[]; fighters: Fighter[]; tracks: Track[]; registrations: any[];
 }
 
 export default function ClientPage() {
@@ -36,16 +29,12 @@ export default function ClientPage() {
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [bets, setBets] = useState<any[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
-  
   const [regNickname, setRegNickname] = useState("");
   const [regStatus, setRegStatus] = useState<"idle" | "success" | "error">("idle");
 
   const reload = useCallback(async () => {
     try {
-      const [resData, resBets] = await Promise.all([
-        fetch("/api/data", { cache: "no-store" }),
-        fetch("/api/bets", { cache: "no-store" })
-      ]);
+      const [resData, resBets] = await Promise.all([fetch("/api/data", { cache: "no-store" }), fetch("/api/bets", { cache: "no-store" })]);
       const jsonData = await resData.json();
       const jsonBets = await resBets.json();
       setData(jsonData);
@@ -66,41 +55,26 @@ export default function ClientPage() {
 
   async function handleRegister() {
     if (!regNickname.trim()) return;
-    const res = await fetch("/api/battle/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: regNickname }),
-    });
-    if (res.ok) { setRegStatus("success"); reload(); }
-    else { setRegStatus("error"); }
+    const res = await fetch("/api/battle/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nickname: regNickname }) });
+    if (res.ok) { setRegStatus("success"); reload(); } else { setRegStatus("error"); }
   }
 
   async function placeBet(matchId: string, fighterId: string) {
-    const res = await fetch("/api/bets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId, fighterId }),
-    });
+    const res = await fetch("/api/bets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId, fighterId }) });
     if (res.ok) await reload();
     else alert("Ошибка ставки");
   }
 
   async function submitTrack(matchId: string, url: string) {
-    const res = await fetch("/api/tracks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ matchId, url }),
-    });
+    const res = await fetch("/api/tracks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId, url }) });
     if (res.ok) await reload();
     else alert("Ошибка отправки трека");
   }
 
-  async function togglePublish(trackId: string, currentStatus: boolean) {
-    await fetch("/api/tracks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trackId, isPublished: !currentStatus }),
-    });
+  async function togglePublish(trackId: string) {
+    const track = data?.tracks.find(t => t.id === trackId);
+    if (!track) return;
+    await fetch("/api/tracks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trackId, isPublished: !track.isPublished }) });
     await reload();
   }
 
@@ -119,27 +93,15 @@ export default function ClientPage() {
           onSave={async (p) => {
             const res = await fetch("/api/admin/save", { method: "PUT", body: JSON.stringify(p) });
             if (!res.ok) { alert("Ошибка сохранения"); return; }
-            await reload(); await reloadUsers();
-            alert("Сохранено!");
+            await reload(); await reloadUsers(); alert("Сохранено!");
           }}
-          onDeleteUser={async (id) => {
-            await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
-            await reloadUsers(); await reload();
-          }}
-          onPatchUser={async (id, p) => {
-            await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) });
-            await reloadUsers();
-          }}
-          onApproveReg={async (regId, userId, nickname) => {
-            await fetch("/api/admin/approve", { method: "POST", body: JSON.stringify({ regId, userId, nickname }) });
-            await reload(); await reloadUsers();
-          }}
+          onDeleteUser={async (id) => { await fetch(`/api/admin/users/${id}`, { method: "DELETE" }); await reloadUsers(); await reload(); }}
+          onPatchUser={async (id, p) => { await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) }); await reloadUsers(); }}
+          onApproveReg={async (regId, userId, nickname) => { await fetch("/api/admin/approve", { method: "POST", body: JSON.stringify({ regId, userId, nickname }) }); await reload(); await reloadUsers(); }}
           onClose={() => setAdminOpen(false)}
         />
       )}
-
       <TopBar onOpenAdmin={() => setAdminOpen(true)} />
-
       <main className="min-h-screen bg-[#0b0b0f] text-[#f5f5f5]" style={{ filter: `grayscale(${data.style.grayscale})` }}>
         <div className="max-w-[1180px] mx-auto p-4">
           {showMaintenance ? (
@@ -149,38 +111,19 @@ export default function ClientPage() {
               <SeasonHeader season={data.season} />
               <NewsBanners items={data.news} />
               <ArchiveBanner config={data.archive} />
-
-              {/* Запись на батл */}
               {role === "user" && data.season?.registration?.enabled && !myReg && regStatus !== "success" && (
                 <div className="mb-8 p-4 bg-[#14141c] border border-[#00a3ff] rounded-xl flex flex-col md:flex-row items-center gap-4">
-                  <input
-                    type="text" placeholder="Твой боевой ник" value={regNickname}
-                    onChange={(e) => setRegNickname(e.target.value)}
-                    className="flex-1 bg-[#1d1d27] text-white border border-[#333] rounded-lg px-4 py-3 outline-none focus:border-[#00a3ff]"
-                  />
-                  <button
-                    onClick={handleRegister}
-                    style={{ backgroundColor: data.season.registration.buttonColor }}
-                    className="text-white font-extrabold px-6 py-3 rounded-lg hover:opacity-90 w-full md:w-auto"
-                  >
-                    {data.season.registration.buttonText}
-                  </button>
+                  <input type="text" placeholder="Твой боевой ник" value={regNickname} onChange={(e) => setRegNickname(e.target.value)} className="flex-1 bg-[#1d1d27] text-white border border-[#333] rounded-lg px-4 py-3 outline-none focus:border-[#00a3ff]" />
+                  <button onClick={handleRegister} style={{ backgroundColor: data.season.registration.buttonColor }} className="text-white font-extrabold px-6 py-3 rounded-lg hover:opacity-90 w-full md:w-auto">{data.season.registration.buttonText}</button>
                 </div>
               )}
-              {myReg && (
-                <div className="mb-8 p-4 bg-[#1d1d27] border border-[#35d07f] rounded-xl text-[#35d07f] text-center font-bold">
-                  Вы уже подали заявку как <span className="text-white">"{myReg.desired_nickname}"</span>. Ожидайте одобрения.
-                </div>
-              )}
-
+              {myReg && <div className="mb-8 p-4 bg-[#1d1d27] border border-[#35d07f] rounded-xl text-[#35d07f] text-center font-bold">Вы уже подали заявку как <span className="text-white">"{myReg.desired_nickname}"</span>. Ожидайте одобрения.</div>}
               <section className="mb-8">
                 <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Турнирная сетка</h2>
                 <Bracket matches={data.matches} fighters={data.fighters} currentUserId={currentUserId} role={role} style={data.style} />
               </section>
-
               <MatchesSection matches={data.matches} bets={bets} fighters={data.fighters} role={role} currentUserId={currentUserId} onBet={placeBet} />
-              <TracksSection role={role} currentUserId={currentUserId} matches={data.matches} fighters={data.fighters} tracks={data.tracks} onTrackSubmit={submitTrack} onTogglePublish={(id) => togglePublish(id, data.tracks.find(t=>t.id===id)?.isPublished || false)} />
-              
+              <TracksSection role={role} currentUserId={currentUserId} matches={data.matches} fighters={data.fighters} tracks={data.tracks} onTrackSubmit={submitTrack} onTogglePublish={togglePublish} />
               <Footer />
             </>
           )}
