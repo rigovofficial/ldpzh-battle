@@ -9,16 +9,14 @@ export default function MatchesSection({
   matches: Match[]; bets: Bet[]; fighters: Fighter[]; role: Role;
   currentUserId: string; onBet: (matchId: string, fighterId: string) => void;
 }) {
-  // Показываем матч, если он активен ИЛИ на него уже есть ставки
-  const visibleMatches = matches.filter((m) => 
-    m.isBettingOpen || m.isTracksOpen || m.isCompleted || bets.some(b => b.matchId === m.id)
-  );
+  // Показываем все матчи, где есть хоть один боец (чтобы видеть сетку целиком)
+  const visibleMatches = matches.filter((m) => m.fighter1 || m.fighter2);
 
   return (
     <section className="mb-8">
       <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Матчи и ставки</h2>
       {visibleMatches.length === 0 ? (
-        <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">Сейчас нет активных матчей</div>
+        <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">Матчей пока нет</div>
       ) : (
         <div className="flex flex-col gap-4">
           {visibleMatches.map((m) => (
