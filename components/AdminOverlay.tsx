@@ -50,7 +50,6 @@ export default function AdminOverlay({
   const [draftTracks, setDraftTracks] = useState<Track[]>(JSON.parse(JSON.stringify(tracksProp)));
   const [draftStyle, setDraftStyle] = useState<StyleConfig>(JSON.parse(JSON.stringify(styleProp)));
 
-  // Синхронизация при сохранении
   useEffect(() => {
     setDraftNews(JSON.parse(JSON.stringify(newsProp)));
     setDraftArchive(JSON.parse(JSON.stringify(archiveProp)));
@@ -92,7 +91,6 @@ export default function AdminOverlay({
 
   function handleClose() { if (dirty && !confirm("Закрыть без сохранения?")) return; onClose(); }
 
-  // Создание сетки
   function createBracket(type: "classic" | "free") {
     const name = prompt("Название сетки (например, 'Сезон 2'):");
     if (!name) return;
@@ -131,8 +129,6 @@ export default function AdminOverlay({
         if (idx % 2 === 0) match.fighter1 = f.id; else match.fighter2 = f.id;
       });
     } else {
-      // Свободная сетка (пустая, матчи добавляются вручную)
-      // Можно сразу создать 1 тестовый матч
       newMatches.push({ 
         id: `m_${Date.now()}_1_1`, round: 1, index: 1, fighter1: null, fighter2: null, 
         isCompleted: false, isBettingOpen: false, isTracksOpen: false, isFinal: false, 
@@ -160,7 +156,6 @@ export default function AdminOverlay({
         <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-[#00a3ff] flex-wrap gap-3">
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-xl font-black uppercase tracking-wide m-0">🛠 Админ-панель</h2>
-            <span className="px-2.5 py-1 rounded-full bg-[#35d07f] text-[#062a16] font-extrabold text-[11px] tracking-widest uppercase">Режим организатора</span>
             {dirty && <span className="px-2.5 py-1 rounded-full bg-[#ffb020] text-[#2a1c00] font-extrabold text-[11px] tracking-widest uppercase">● Есть правки</span>}
           </div>
           <button onClick={handleClose} className="bg-[#ff2b2b] text-white px-4 py-2 rounded-lg cursor-pointer font-extrabold text-[13px] border-none hover:opacity-90">✕ Закрыть</button>
@@ -174,7 +169,6 @@ export default function AdminOverlay({
 
         <div className="bg-[#14141c] border border-[#00a3ff] rounded-2xl p-5 min-h-[400px]">
           
-          {/* НОВОСТИ */}
           {tab === "news" && (
             <div className="flex flex-col gap-6">
               <div>
@@ -192,9 +186,9 @@ export default function AdminOverlay({
                         <Field label="Ссылка" className="col-span-2"><input type="url" value={n.url} onChange={(e) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, url: e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
                       </div>
                       <div className="grid grid-cols-3 gap-3">
-                        <ColorField label="Фон" value={n.bgColor} onChange={(v) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, bgColor: v} : x))} />
-                        <ColorField label="Рамка" value={n.borderColor} onChange={(v) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, borderColor: v} : x))} />
-                        <ColorField label="Текст" value={n.textColor} onChange={(v) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, textColor: v} : x))} />
+                        <ColorField label="Фон" value={n.bgColor} onChange={(v: string) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, bgColor: v} : x))} />
+                        <ColorField label="Рамка" value={n.borderColor} onChange={(v: string) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, borderColor: v} : x))} />
+                        <ColorField label="Текст" value={n.textColor} onChange={(v: string) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, textColor: v} : x))} />
                       </div>
                     </div>
                   ))}
@@ -213,11 +207,10 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* СЕТКИ */}
           {tab === "bracket" && (
             <div>
               <div className="flex gap-4 mb-6 items-center flex-wrap">
-                <select value={draftActiveBracket} onChange={e => setDraftActiveBracket(e.target.value)} className="bg-[#1d1d27] text-white p-2 rounded font-bold border border-[#333]">
+                <select value={draftActiveBracket} onChange={(e) => setDraftActiveBracket(e.target.value)} className="bg-[#1d1d27] text-white p-2 rounded font-bold border border-[#333]">
                   {draftBrackets.map(b => <option key={b.id} value={b.id}>{b.name} ({b.type === 'classic' ? 'Классика' : 'Свободная'})</option>)}
                 </select>
                 <button onClick={() => createBracket("classic")} className="bg-[#00a3ff] text-[#002233] px-4 py-2 rounded font-bold">+ Классическая</button>
@@ -238,12 +231,12 @@ export default function AdminOverlay({
                                <span className="text-[10px] text-[#9aa0a6]">Матч {m.index}</span>
                                <button onClick={() => { if(confirm("Удалить матч?")) setDraftMatches(prev => prev.filter(x => x.id !== m.id)) }} className="text-[#ff2b2b] text-[10px]">🗑</button>
                             </div>
-                            <FighterRow match={m} slot={1} fighters={draftFighters.filter(f => f.bracketId === draftActiveBracket)} onUpdate={(p) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, ...p} : x))} onSetWinner={() => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, winner: m.fighter1} : x))} createFighter={(name) => {
+                            <FighterRow match={m} slot={1} fighters={draftFighters.filter(f => f.bracketId === draftActiveBracket)} onUpdate={(p: any) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, ...p} : x))} onSetWinner={() => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, winner: m.fighter1} : x))} createFighter={(name: string) => {
                               const newId = "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
                               setDraftFighters(prev => [...prev, { id: newId, name, userId: null, prevScore: 0, totalScore: 0, bracketId: draftActiveBracket }]);
                               return newId;
                             }} />
-                            <FighterRow match={m} slot={2} fighters={draftFighters.filter(f => f.bracketId === draftActiveBracket)} onUpdate={(p) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, ...p} : x))} onSetWinner={() => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, winner: m.fighter2} : x))} createFighter={(name) => {
+                            <FighterRow match={m} slot={2} fighters={draftFighters.filter(f => f.bracketId === draftActiveBracket)} onUpdate={(p: any) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, ...p} : x))} onSetWinner={() => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, winner: m.fighter2} : x))} createFighter={(name: string) => {
                               const newId = "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
                               setDraftFighters(prev => [...prev, { id: newId, name, userId: null, prevScore: 0, totalScore: 0, bracketId: draftActiveBracket }]);
                               return newId;
@@ -279,7 +272,6 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* СЕЗОН */}
           {tab === "season" && (
             <div className="flex flex-col gap-6">
               <div>
@@ -319,7 +311,6 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* ЗАПИСИ */}
           {tab === "registrations" && (
             <div>
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Заявки на участие</h3>
@@ -340,7 +331,6 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* ЮЗЕРЫ */}
           {tab === "users" && (
             <div className="flex flex-col gap-6">
               <div>
@@ -365,7 +355,6 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* МАТЧИ */}
           {tab === "matches" && (
             <div className="flex flex-col gap-3">
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-2">Все матчи (активная сетка)</h3>
@@ -385,7 +374,6 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* ТРЕКИ */}
           {tab === "tracks" && (
             <div>
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Треки</h3>
@@ -404,21 +392,19 @@ export default function AdminOverlay({
             </div>
           )}
 
-          {/* СТИЛИ */}
           {tab === "style" && (
             <div className="flex flex-col gap-4">
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-2">Стили</h3>
               <div className="grid grid-cols-2 gap-4 max-w-[720px]">
-                <ColorField label="Primary" value={draftStyle.primary} onChange={(v) => setDraftStyle({...draftStyle, primary: v})} />
-                <ColorField label="Accent" value={draftStyle.accent} onChange={(v) => setDraftStyle({...draftStyle, accent: v})} />
-                <ColorField label="Активный" value={draftStyle.participantActive} onChange={(v) => setDraftStyle({...draftStyle, participantActive: v})} />
-                <ColorField label="Прошёл" value={draftStyle.participantWin} onChange={(v) => setDraftStyle({...draftStyle, participantWin: v})} />
+                <ColorField label="Primary" value={draftStyle.primary} onChange={(v: string) => setDraftStyle({...draftStyle, primary: v})} />
+                <ColorField label="Accent" value={draftStyle.accent} onChange={(v: string) => setDraftStyle({...draftStyle, accent: v})} />
+                <ColorField label="Активный" value={draftStyle.participantActive} onChange={(v: string) => setDraftStyle({...draftStyle, participantActive: v})} />
+                <ColorField label="Прошёл" value={draftStyle.participantWin} onChange={(v: string) => setDraftStyle({...draftStyle, participantWin: v})} />
               </div>
               <label className="flex items-center gap-2 mt-4 text-sm"><input type="checkbox" checked={draftStyle.grayscale === 1} onChange={(e) => setDraftStyle({...draftStyle, grayscale: e.target.checked ? 1 : 0})} /> ЧБ-фильтр</label>
             </div>
           )}
 
-          {/* БЭКАП */}
           {tab === "backup" && (
             <div className="flex flex-col gap-6">
               <div>

@@ -1,6 +1,6 @@
 import type { Match, Fighter } from "./types";
 
-export function regenerateBracket(fighterIds: string[], fighters: Fighter[]): Match[] {
+export function regenerateBracket(fighterIds: string[], fighters: Fighter[], bracketId: string): Match[] {
   const N = fighterIds.length;
   const rounds = Math.round(Math.log2(N));
   const matches: Match[] = [];
@@ -9,8 +9,21 @@ export function regenerateBracket(fighterIds: string[], fighters: Fighter[]): Ma
     const count = N / Math.pow(2, r);
     for (let i = 1; i <= count; i++) {
       matches.push({
-        id: `m_${r}_${i}`, round: r, index: i, fighter1: null, fighter2: null,
-        status: "pending", odds1: 1.2, odds2: 1.2, score1: null, score2: null, winner: null,
+        id: `m_${Date.now()}_${r}_${i}`,
+        round: r,
+        index: i,
+        fighter1: null,
+        fighter2: null,
+        isCompleted: false,
+        isBettingOpen: false,
+        isTracksOpen: false,
+        isFinal: r === rounds,
+        odds1: 1.2,
+        odds2: 1.2,
+        score1: null,
+        score2: null,
+        winner: null,
+        bracketId: bracketId,
       });
     }
   }
@@ -34,14 +47,18 @@ export function regenerateBracket(fighterIds: string[], fighters: Fighter[]): Ma
   return matches;
 }
 
-export function resizeFighterPool(current: Fighter[], N: number): Fighter[] {
+export function resizeFighterPool(current: Fighter[], N: number, bracketId: string): Fighter[] {
   const result = [...current];
   if (result.length > N) return result.slice(0, N);
   while (result.length < N) {
     const idx = result.length + 1;
     result.push({
-      id: "f_" + Date.now() + "_" + idx, name: `Свободный слот ${idx}`,
-      userId: null, prevScore: 0, totalScore: 0,
+      id: `f_${Date.now()}_${idx}`,
+      name: `Свободный слот ${idx}`,
+      userId: null,
+      prevScore: 0,
+      totalScore: 0,
+      bracketId: bracketId,
     });
   }
   return result;
