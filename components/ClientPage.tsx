@@ -152,7 +152,7 @@ export default function ClientPage() {
                     </div>
                   </div>
 
-                  <div id="registration-block" className="bg-[#14141c] border border-[#00a3ff] rounded-xl p-4">
+                  <div id="registration-block" className="scroll-mt-24 bg-[#14141c] border border-[#00a3ff] rounded-xl p-4">
                     <h3 className="text-[#00a3ff] font-black uppercase tracking-widest mb-4 text-center">Запись на батл</h3>
                     {role === "anonymous" && (
                        <div className="text-center text-[#9aa0a6] text-sm p-4 border border-dashed border-[#333] rounded-lg">

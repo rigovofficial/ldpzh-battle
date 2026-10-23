@@ -9,7 +9,10 @@ export default function MatchesSection({
   matches: Match[]; bets: Bet[]; fighters: Fighter[]; role: Role;
   currentUserId: string; onBet: (matchId: string, fighterId: string) => void;
 }) {
-  const visibleMatches = matches.filter((m) => m.isBettingOpen || m.isTracksOpen || m.isCompleted);
+  // Показываем матч, если он активен ИЛИ на него уже есть ставки
+  const visibleMatches = matches.filter((m) => 
+    m.isBettingOpen || m.isTracksOpen || m.isCompleted || bets.some(b => b.matchId === m.id)
+  );
 
   return (
     <section className="mb-8">

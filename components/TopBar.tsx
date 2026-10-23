@@ -12,6 +12,13 @@ export default function TopBar({ onOpenAdmin }: { onOpenAdmin: () => void }) {
     window.location.href = "/";
   }
 
+  function scrollToRegistration() {
+    const el = document.getElementById("registration-block");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+
   return (
     <div className="sticky top-0 z-40 bg-[#14141c] border-b border-[#00a3ff] px-4 py-3 flex items-center justify-between flex-wrap gap-3">
       <Link href="/" className="font-black tracking-wide text-[15px] no-underline text-white">
@@ -20,9 +27,9 @@ export default function TopBar({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
       <div className="flex items-center gap-2 flex-wrap">
         {role === "user" && (
-           <a href="#registration-block" className="bg-[#8b0033] text-white px-3 py-2 rounded-lg text-[13px] font-bold no-underline hover:opacity-90">
+           <button onClick={scrollToRegistration} className="bg-[#8b0033] text-white px-3 py-2 rounded-lg text-[13px] font-bold no-underline hover:opacity-90 transition-opacity">
              Записаться на батл
-           </a>
+           </button>
         )}
         {role === "admin" && (
           <button onClick={onOpenAdmin} className="bg-gradient-to-r from-[#8b0033] to-[#4a001a] text-white border border-[#00a3ff] px-3.5 py-2 rounded-lg cursor-pointer font-bold text-[13px] tracking-wide hover:opacity-90">
