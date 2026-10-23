@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { NewsItem, ArchiveConfig, Match, Fighter, User, Season, Track, StyleConfig } from "@/lib/types";
-import { matchStatusLabel, roleLabel } from "@/lib/labels";
+import { matchStatusLabel } from "@/lib/labels";
 import { regenerateBracket, resizeFighterPool } from "@/lib/bracket-utils";
 
 const TABS = [
@@ -130,25 +130,70 @@ export default function AdminOverlay({
               <div className="border-t border-[#2a2a36] pt-6">
                 <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Кнопка записи</h3>
                 <div className="flex flex-col gap-4 max-w-[720px] p-4 bg-[#1d1d27] rounded-xl border border-[#333]">
-                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draftSeason.registration?.enabled ?? false} onChange={(e: any) => setDraftSeason({...draftSeason, registration: {...(draftSeason.registration || {}), enabled: e.target.checked}})} className="w-4 h-4 accent-[#8b0033]" /> Включить</label>
-                  <Field label="Текст"><input type="text" value={draftSeason.registration?.buttonText ?? ""} onChange={(e: any) => setDraftSeason({...draftSeason, registration: {...(draftSeason.registration || {}), buttonText: e.target.value}})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
-                  <Field label="Цвет"><input type="color" value={draftSeason.registration?.buttonColor ?? "#8b0033"} onChange={(e: any) => setDraftSeason({...draftSeason, registration: {...(draftSeason.registration || {}), buttonColor: e.target.value}})} className="w-16 h-8 bg-transparent border border-[#333] rounded" /></Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={draftSeason.registration?.enabled ?? false} 
+                      onChange={(e: any) => setDraftSeason({
+                        ...draftSeason, 
+                        registration: {
+                          enabled: e.target.checked,
+                          buttonText: draftSeason.registration?.buttonText ?? "ЗАПИСАТЬСЯ НА БАТЛ",
+                          buttonColor: draftSeason.registration?.buttonColor ?? "#8b0033"
+                        }
+                      })} 
+                      className="w-4 h-4 accent-[#8b0033]" /> 
+                    Включить
+                  </label>
+                  <Field label="Текст">
+                    <input type="text" value={draftSeason.registration?.buttonText ?? ""} 
+                      onChange={(e: any) => setDraftSeason({
+                        ...draftSeason, 
+                        registration: {
+                          enabled: draftSeason.registration?.enabled ?? true,
+                          buttonText: e.target.value,
+                          buttonColor: draftSeason.registration?.buttonColor ?? "#8b0033"
+                        }
+                      })} 
+                      className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
+                  </Field>
+                  <Field label="Цвет">
+                    <input type="color" value={draftSeason.registration?.buttonColor ?? "#8b0033"} 
+                      onChange={(e: any) => setDraftSeason({
+                        ...draftSeason, 
+                        registration: {
+                          enabled: draftSeason.registration?.enabled ?? true,
+                          buttonText: draftSeason.registration?.buttonText ?? "ЗАПИСАТЬСЯ НА БАТЛ",
+                          buttonColor: e.target.value
+                        }
+                      })} 
+                      className="w-16 h-8 bg-transparent border border-[#333] rounded" />
+                  </Field>
                 </div>
               </div>
 
               <div className="border-t border-[#2a2a36] pt-6">
                 <h3 className="text-[#ff2b2b] text-sm uppercase tracking-widest mb-4">Техработы (Глушилка)</h3>
                 <div className="flex flex-col gap-4 max-w-[720px] p-4 bg-[#1d1d27] rounded-xl border border-[#333]">
-                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draftMaintenance} onChange={(e: any) => setDraftMaintenance(e.target.checked)} className="w-4 h-4 accent-[#ff2b2b]" /> Включить техработы</label>
-                  <Field label="Заголовок глушилки"><input type="text" value={draftMaintConfig.title} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, title: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
-                  <Field label="Подзаголовок глушилки"><input type="text" value={draftMaintConfig.subtitle} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, subtitle: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
-                  <Field label="Ссылка на картинку (Маркин)"><input type="url" value={draftMaintConfig.imageUrl} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, imageUrl: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={draftMaintenance} onChange={(e: any) => setDraftMaintenance(e.target.checked)} className="w-4 h-4 accent-[#ff2b2b]" /> 
+                    Включить техработы
+                  </label>
+                  <Field label="Заголовок глушилки">
+                    <input type="text" value={draftMaintConfig.title} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, title: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
+                  </Field>
+                  <Field label="Подзаголовок глушилки">
+                    <input type="text" value={draftMaintConfig.subtitle} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, subtitle: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
+                  </Field>
+                  <Field label="Ссылка на картинку (Маркин)">
+                    <input type="url" value={draftMaintConfig.imageUrl} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, imageUrl: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
+                  </Field>
                 </div>
               </div>
 
               <div className="border-t border-[#2a2a36] pt-6">
                 <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Версия сайта</h3>
-                <Field label="Название версии"><input type="text" value={draftVersion} onChange={(e: any) => setDraftVersion(e.target.value)} className="w-full max-w-[720px] bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                <Field label="Название версии">
+                  <input type="text" value={draftVersion} onChange={(e: any) => setDraftVersion(e.target.value)} className="w-full max-w-[720px] bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" />
+                </Field>
               </div>
             </div>
           )}
@@ -309,6 +354,161 @@ export default function AdminOverlay({
           <span className="text-[#ffb020] text-xs ml-auto">{dirty ? "Правки применяются только после «Сохранить»" : "Все изменения сохранены"}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ВКЛАДКИ
+   ============================================================ */
+
+function NewsTab({ news, archive, onChangeNews, onRemoveNews, onAddNews, onChangeArchive }: any) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">Новостные баннеры</h3>
+        <div className="flex flex-col gap-4 mt-4">
+          {news.map((n: any, i: number) => (
+            <div key={n.id} className="bg-[#1d1d27] rounded-xl p-4 border-l-4" style={{ borderLeftColor: n.borderColor }}>
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[#9aa0a6] text-xs uppercase tracking-widest">Баннер #{i + 1}</span>
+                <button onClick={() => onRemoveNews(n.id)} className="text-[#ff2b2b] border border-[#ff2b2b] px-3 py-1 rounded text-xs hover:bg-[#ff2b2b] hover:text-white">🗑 Удалить</button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <Field label="Заголовок"><input type="text" value={n.title} onChange={(e) => onChangeNews(n.id, { title: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                <Field label="Подпись"><input type="text" value={n.subtitle} onChange={(e) => onChangeNews(n.id, { subtitle: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                <Field label="Ссылка" className="col-span-2"><input type="url" value={n.url} onChange={(e) => onChangeNews(n.id, { url: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <ColorField label="Фон" value={n.bgColor} onChange={(v: any) => onChangeNews(n.id, { bgColor: v })} />
+                <ColorField label="Рамка" value={n.borderColor} onChange={(v: any) => onChangeNews(n.id, { borderColor: v })} />
+                <ColorField label="Текст" value={n.textColor} onChange={(v: any) => onChangeNews(n.id, { textColor: v })} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onAddNews} className="mt-4 bg-[#8b0033] text-white font-bold px-4 py-2 rounded hover:opacity-90">+ Добавить</button>
+      </div>
+      <div className="border-t border-[#2a2a36] pt-6">
+        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Архив</h3>
+        <div className="flex flex-col gap-3 max-w-[720px]">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={archive.enabled} onChange={(e) => onChangeArchive({ enabled: e.target.checked })} /> Включен</label>
+          <Field label="Заголовок"><input type="text" value={archive.title} onChange={(e) => onChangeArchive({ title: e.target.value })} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
+          <Field label="Подпись"><input type="text" value={archive.subtitle} onChange={(e) => onChangeArchive({ subtitle: e.target.value })} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
+          <Field label="Ссылка"><input type="url" value={archive.url} onChange={(e) => onChangeArchive({ url: e.target.value })} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BracketTab({ matches, fighters, setMatches, setFighters, createFighter }: any) {
+  const maxRound = matches.length ? Math.max(...matches.map((m: any) => m.round)) : 1;
+  const [genSize, setGenSize] = useState(8);
+
+  function updateMatch(id: string, patch: any) { setMatches((prev: any) => prev.map((m: any) => (m.id === id ? { ...m, ...patch } : m))); }
+  
+  function handleGenerate() {
+    if (!confirm(`Создать новую сетку на ${genSize} участников? Текущие матчи будут стерты.`)) return;
+    let currentPool = [...fighters];
+    
+    if (currentPool.length < genSize) {
+      for (let i = currentPool.length; i < genSize; i++) {
+        currentPool.push({ id: `f_${Date.now()}_${i}`, name: `Слот ${i+1}`, userId: null, prevScore: 0, totalScore: 0 });
+      }
+    } else if (currentPool.length > genSize) {
+      currentPool = currentPool.slice(0, genSize);
+    }
+
+    setFighters(currentPool);
+    const newMatches = regenerateBracket(currentPool.map((f:any) => f.id), currentPool);
+    setMatches(newMatches);
+  }
+
+  function completeAndAdvance(m: any) {
+    if (!m.winner || !m.fighter1 || !m.fighter2) return;
+    const wScore = m.winner === m.fighter1 ? m.score1 : m.score2;
+    if (wScore != null) setFighters((prev: any) => prev.map((f: any) => f.id === m.winner ? { ...f, totalScore: (f.totalScore || 0) + wScore } : f));
+    setMatches((prev: any) => {
+      let upd = prev.map((x: any) => x.id === m.id ? { ...x, status: "completed" } : x);
+      if (m.round >= maxRound) return upd;
+      const nextMatch = upd.find((x: any) => x.round === m.round + 1 && x.index === Math.ceil(m.index / 2));
+      if (nextMatch) {
+        const slot = m.index % 2 === 1 ? "fighter1" : "fighter2";
+        upd = upd.map((x: any) => x.id === nextMatch.id ? { ...x, [slot]: m.winner, winner: null, status: "pending" } : x);
+      }
+      return upd;
+    });
+  }
+
+  return (
+    <div>
+      <div className="mb-6 p-4 bg-[#1d1d27] border border-[#333] rounded-xl flex items-center gap-4">
+        <span className="text-sm font-bold text-white">Создать новую сетку:</span>
+        <select value={genSize} onChange={e => setGenSize(+e.target.value)} className="bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-sm">
+          <option value={4}>4 участника</option>
+          <option value={8}>8 участников</option>
+          <option value={16}>16 участников</option>
+          <option value={32}>32 участника</option>
+        </select>
+        <button onClick={handleGenerate} className="bg-[#ff2b2b] text-white font-bold px-4 py-1.5 rounded hover:opacity-90 text-sm">Сгенерировать</button>
+      </div>
+
+      <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Текущая сетка</h3>
+      <div className="grid gap-4 items-start" style={{ gridTemplateColumns: `repeat(${maxRound}, minmax(230px, 1fr))` }}>
+        {Array.from({ length: maxRound }, (_, i) => i + 1).map((r) => {
+          const roundMatches = matches.filter((m: any) => m.round === r).sort((a: any, b: any) => a.index - b.index);
+          return (
+            <div key={r}>
+              <div className="text-[10px] uppercase tracking-widest text-[#9aa0a6] mb-2 font-bold">{r === maxRound ? "Финал" : r === maxRound - 1 && maxRound >= 3 ? "Полуфинал" : `Раунд ${r}`}</div>
+              <div className="flex flex-col gap-3">
+                {roundMatches.map((m: any) => (
+                  <div key={m.id} className="bg-[#1d1d27] border border-[#2a2a36] rounded p-3">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-[10px] text-[#9aa0a6]">Матч {m.index}</span>
+                      <select value={m.status} onChange={(e: any) => updateMatch(m.id, { status: e.target.value })} className="bg-[#14141c] text-[10px] border border-[#333] rounded">
+                        <option value="pending">Ожидание</option><option value="betting_open">Ставки</option><option value="tracks_open">Треки</option><option value="judging">Суд</option><option value="completed">Готово</option>
+                      </select>
+                    </div>
+                    <FighterRow match={m} slot={1} fighters={fighters} onUpdate={(p: any) => updateMatch(m.id, p)} onSetWinner={() => updateMatch(m.id, { winner: m.fighter1 })} createFighter={createFighter} />
+                    <FighterRow match={m} slot={2} fighters={fighters} onUpdate={(p: any) => updateMatch(m.id, p)} onSetWinner={() => updateMatch(m.id, { winner: m.fighter2 })} createFighter={createFighter} />
+                    <div className="flex gap-1 mt-2">
+                      <button onClick={() => completeAndAdvance(m)} className="text-[10px] bg-[#35d07f] text-[#062a16] font-bold px-2 py-1 rounded w-full">✓ Завершить</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FighterRow({ match, slot, fighters, onUpdate, onSetWinner, createFighter }: any) {
+  const fid = slot === 1 ? match.fighter1 : match.fighter2;
+  const f = fid ? fighters.find((x: any) => x.id === fid) : null;
+  const isWinner = fid != null && match.winner === fid;
+  const [local, setLocal] = useState(f?.name ?? "");
+
+  useEffect(() => { setLocal(f?.name ?? ""); }, [fid]);
+
+  function commit() {
+    const v = local.trim();
+    if (!v) return onUpdate(slot === 1 ? { fighter1: null } : { fighter2: null });
+    if (f && f.name === v) return;
+    const existing = fighters.find((x: any) => x.name.toLowerCase() === v.toLowerCase());
+    if (existing) return onUpdate(slot === 1 ? { fighter1: existing.id } : { fighter2: existing.id });
+    const newId = createFighter(v);
+    onUpdate(slot === 1 ? { fighter1: newId } : { fighter2: newId });
+  }
+
+  return (
+    <div className={`flex gap-1 items-center p-1 rounded mb-1 ${isWinner ? "border border-[#35d07f] bg-[rgba(53,208,127,0.1)]" : "bg-[#14141c]"}`}>
+      <input type="text" value={local} onChange={(e: any) => setLocal(e.target.value)} onBlur={commit} onKeyDown={(e: any) => e.key === "Enter" && (e.target as any).blur()} className="flex-1 bg-[#1d1d27] text-white text-xs px-2 py-1 rounded" />
+      <input type="number" value={(slot === 1 ? match.score1 : match.score2) ?? ""} onChange={(e: any) => onUpdate(slot === 1 ? { score1: e.target.value === "" ? null : +e.target.value } : { score2: e.target.value === "" ? null : +e.target.value })} className="w-10 bg-[#1d1d27] text-white text-xs px-1 py-1 rounded text-center" />
+      <button onClick={onSetWinner} className={`w-6 h-6 rounded ${isWinner ? "bg-[#35d07f] text-black" : "bg-[#1d1d27] text-[#ccc]"}`}>🏆</button>
     </div>
   );
 }
