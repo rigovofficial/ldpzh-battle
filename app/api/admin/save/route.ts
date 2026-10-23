@@ -16,21 +16,7 @@ export async function PUT(req: NextRequest) {
   const { season, maintenance, maintenanceConfig, versionName, news, archive, matches, fighters, tracks, style, brackets, activeBracketId } = body;
 
   try {
-    // 1. Начисление очков (если матч завершен, а очки еще не выданы)
-    for (const m of matches) {
-      if (m.isCompleted && m.winner && !m.pointsAwarded) {
-        const { data: bets } = await supabaseAdmin.from("bets").select("*").eq("match_id", m.id);
-        if (bets) {
-          for (const bet of bets) {
-            const winPoints = bet.fighter_id === m.winner ? Math.round(100 * Number(bet.coeff)) : -100;
-            // Вызываем RPC
-            await supabaseAdmin.rpc('increment_points', { user_id: bet.user_id, amount: winPoints }).then();
-          }
-        }
-        m.pointsAwarded = true;
-      }
-    }
-
+ 
     // 2. Удаление старых данных (порядок важен из-за Foreign Key)
     await supabaseAdmin.from("tracks").delete().neq("id", "__never__");
     await supabaseAdmin.from("matches").delete().neq("id", "__never__");
