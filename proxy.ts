@@ -4,7 +4,9 @@ import { jwtVerify } from "jose";
 const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = "ldpj_session";
 
-export async function middleware(req: NextRequest) {
+// было: export async function middleware(req: NextRequest) {
+// стало:
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get(COOKIE_NAME)?.value;
 

@@ -44,7 +44,6 @@ export default function AdminOverlay({
   const [draftTracks, setDraftTracks] = useState<Track[]>(JSON.parse(JSON.stringify(tracksProp)));
   const [draftStyle, setDraftStyle] = useState<StyleConfig>(JSON.parse(JSON.stringify(styleProp)));
 
-  // Страховка, если registration еще нет в базе
   useEffect(() => {
     if (draftSeason && !draftSeason.registration) {
       setDraftSeason(prev => ({
@@ -106,10 +105,10 @@ export default function AdminOverlay({
           {tab === "news" && (
             <NewsTab
               news={draftNews} archive={draftArchive}
-              onChangeNews={(id, patch) => setDraftNews(prev => prev.map(n => n.id === id ? { ...n, ...patch } : n))}
-              onRemoveNews={(id) => { if (confirm("Удалить?")) setDraftNews(prev => prev.filter(n => n.id !== id)); }}
+              onChangeNews={(id: string, patch: any) => setDraftNews(prev => prev.map((n: any) => n.id === id ? { ...n, ...patch } : n))}
+              onRemoveNews={(id: string) => { if (confirm("Удалить?")) setDraftNews(prev => prev.filter((n: any) => n.id !== id)); }}
               onAddNews={() => setDraftNews(prev => [...prev, { id: "n_" + Date.now(), title: "НОВОСТЬ", subtitle: "подпись", url: "https://", bgColor: "#8b0033", borderColor: "#00a3ff", textColor: "#ffffff", enabled: true }])}
-              onChangeArchive={(patch) => setDraftArchive(prev => ({ ...prev, ...patch }))}
+              onChangeArchive={(patch: any) => setDraftArchive(prev => ({ ...prev, ...patch }))}
             />
           )}
 
@@ -162,9 +161,9 @@ export default function AdminOverlay({
           {tab === "tracks" && (
             <TracksTab
               tracks={draftTracks} fighters={draftFighters} matches={draftMatches}
-              onChange={(id, patch) => setDraftTracks(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t))}
-              onRemove={(id) => { if (confirm("Удалить трек?")) setDraftTracks(prev => prev.filter(t => t.id !== id)); }}
-              onAdd={(newTrack) => setDraftTracks(prev => [...prev, newTrack])}
+              onChange={(id: string, patch: any) => setDraftTracks(prev => prev.map((t: any) => t.id === id ? { ...t, ...patch } : t))}
+              onRemove={(id: string) => { if (confirm("Удалить трек?")) setDraftTracks(prev => prev.filter((t: any) => t.id !== id)); }}
+              onAdd={(newTrack: any) => setDraftTracks(prev => [...prev, newTrack])}
             />
           )}
 
@@ -176,7 +175,7 @@ export default function AdminOverlay({
             <BackupTab
               season={draftSeason} maintenance={draftMaintenance} news={draftNews} archive={draftArchive}
               matches={draftMatches} fighters={draftFighters} users={users} tracks={draftTracks} style={draftStyle}
-              onImport={(data) => {
+              onImport={(data: any) => {
                 setDraftNews(data.news); setDraftArchive(data.archive); setDraftMatches(data.matches);
                 setDraftFighters(data.fighters); setDraftSeason(data.season); setDraftTracks(data.tracks);
                 setDraftStyle(data.style); setDraftMaintenance(data.maintenance);
@@ -275,7 +274,7 @@ function BracketTab({ matches, fighters, setMatches, setFighters, createFighter 
                   <div key={m.id} className="bg-[#1d1d27] border border-[#2a2a36] rounded p-3">
                     <div className="flex justify-between mb-2">
                       <span className="text-[10px] text-[#9aa0a6]">Матч {m.index}</span>
-                      <select value={m.status} onChange={e => updateMatch(m.id, { status: e.target.value })} className="bg-[#14141c] text-[10px] border border-[#333] rounded">
+                      <select value={m.status} onChange={(e: any) => updateMatch(m.id, { status: e.target.value })} className="bg-[#14141c] text-[10px] border border-[#333] rounded">
                         <option value="pending">Ожидание</option><option value="betting_open">Ставки</option><option value="tracks_open">Треки</option><option value="judging">Суд</option><option value="completed">Готово</option>
                       </select>
                     </div>
@@ -315,8 +314,8 @@ function FighterRow({ match, slot, fighters, onUpdate, onSetWinner, createFighte
 
   return (
     <div className={`flex gap-1 items-center p-1 rounded mb-1 ${isWinner ? "border border-[#35d07f] bg-[rgba(53,208,127,0.1)]" : "bg-[#14141c]"}`}>
-      <input type="text" value={local} onChange={e => setLocal(e.target.value)} onBlur={commit} onKeyDown={e => e.key === "Enter" && (e.target as any).blur()} className="flex-1 bg-[#1d1d27] text-white text-xs px-2 py-1 rounded" />
-      <input type="number" value={(slot === 1 ? match.score1 : match.score2) ?? ""} onChange={e => onUpdate(slot === 1 ? { score1: e.target.value === "" ? null : +e.target.value } : { score2: e.target.value === "" ? null : +e.target.value })} className="w-10 bg-[#1d1d27] text-white text-xs px-1 py-1 rounded text-center" />
+      <input type="text" value={local} onChange={(e: any) => setLocal(e.target.value)} onBlur={commit} onKeyDown={(e: any) => e.key === "Enter" && (e.target as any).blur()} className="flex-1 bg-[#1d1d27] text-white text-xs px-2 py-1 rounded" />
+      <input type="number" value={(slot === 1 ? match.score1 : match.score2) ?? ""} onChange={(e: any) => onUpdate(slot === 1 ? { score1: e.target.value === "" ? null : +e.target.value } : { score2: e.target.value === "" ? null : +e.target.value })} className="w-10 bg-[#1d1d27] text-white text-xs px-1 py-1 rounded text-center" />
       <button onClick={onSetWinner} className={`w-6 h-6 rounded ${isWinner ? "bg-[#35d07f] text-black" : "bg-[#1d1d27] text-[#ccc]"}`}>🏆</button>
     </div>
   );
@@ -328,23 +327,23 @@ function SeasonTab({ season, setSeason, maintenance, setMaintenance, fighters, s
       <div>
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Сезон</h3>
         <div className="flex flex-col gap-3 max-w-[720px]">
-          <Field label="Название"><input type="text" value={season.title} onChange={e => setSeason({...season, title: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
-          <Field label="Номер"><input type="number" value={season.number} onChange={e => setSeason({...season, number: +e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
+          <Field label="Название"><input type="text" value={season.title} onChange={(e: any) => setSeason({...season, title: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
+          <Field label="Номер"><input type="number" value={season.number} onChange={(e: any) => setSeason({...season, number: +e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
         </div>
       </div>
       
       <div className="border-t border-[#2a2a36] pt-6">
         <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Кнопка записи</h3>
         <div className="flex flex-col gap-4 max-w-[720px] p-4 bg-[#1d1d27] rounded-xl border border-[#333]">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={season.registration?.enabled ?? false} onChange={e => setSeason({...season, registration: {...(season.registration || {}), enabled: e.target.checked}})} className="w-4 h-4 accent-[#8b0033]" /> Включить</label>
-          <Field label="Текст"><input type="text" value={season.registration?.buttonText ?? ""} onChange={e => setSeason({...season, registration: {...(season.registration || {}), buttonText: e.target.value}})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
-          <Field label="Цвет"><input type="color" value={season.registration?.buttonColor ?? "#8b0033"} onChange={e => setSeason({...season, registration: {...(season.registration || {}), buttonColor: e.target.value}})} className="w-16 h-8 bg-transparent border border-[#333] rounded" /></Field>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={season.registration?.enabled ?? false} onChange={(e: any) => setSeason({...season, registration: {...(season.registration || {}), enabled: e.target.checked}})} className="w-4 h-4 accent-[#8b0033]" /> Включить</label>
+          <Field label="Текст"><input type="text" value={season.registration?.buttonText ?? ""} onChange={(e: any) => setSeason({...season, registration: {...(season.registration || {}), buttonText: e.target.value}})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
+          <Field label="Цвет"><input type="color" value={season.registration?.buttonColor ?? "#8b0033"} onChange={(e: any) => setSeason({...season, registration: {...(season.registration || {}), buttonColor: e.target.value}})} className="w-16 h-8 bg-transparent border border-[#333] rounded" /></Field>
         </div>
       </div>
 
       <div className="border-t border-[#2a2a36] pt-6">
         <h3 className="text-[#ff2b2b] text-sm uppercase tracking-widest mb-4">Техработы</h3>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={maintenance} onChange={e => setMaintenance(e.target.checked)} className="w-4 h-4 accent-[#ff2b2b]" /> {maintenance ? "Включены" : "Выключены"}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={maintenance} onChange={(e: any) => setMaintenance(e.target.checked)} className="w-4 h-4 accent-[#ff2b2b]" /> {maintenance ? "Включены" : "Выключены"}</label>
       </div>
     </div>
   );
@@ -363,7 +362,7 @@ function UsersTab({ users, fighters, setFighters, onDeleteUser, onPatchUser }: a
                 <div className="text-[#00a3ff] text-xs mt-1">{u.role}</div>
               </div>
               <div className="flex gap-2">
-                <select value={u.role} onChange={(e) => onPatchUser(u.id, { role: e.target.value })} className="bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs">
+                <select value={u.role} onChange={(e: any) => onPatchUser(u.id, { role: e.target.value })} className="bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs">
                   <option value="user">Юзер</option><option value="participant">Участник</option><option value="admin">Админ</option>
                 </select>
                 <button onClick={() => onDeleteUser(u.id)} className="text-[#ff2b2b] border border-[#ff2b2b] px-2 py-1 rounded text-xs hover:bg-[#ff2b2b] hover:text-white">🗑</button>
@@ -377,7 +376,7 @@ function UsersTab({ users, fighters, setFighters, onDeleteUser, onPatchUser }: a
         <div className="flex flex-col gap-2">
           {fighters.map((f: any) => (
             <div key={f.id} className="flex gap-2 items-center bg-[#1d1d27] p-2 rounded">
-              <input type="text" value={f.name} onChange={e => setFighters((prev: any) => prev.map((x: any) => x.id === f.id ? { ...x, name: e.target.value } : x))} className="flex-1 bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" />
+              <input type="text" value={f.name} onChange={(e: any) => setFighters((prev: any) => prev.map((x: any) => x.id === f.id ? { ...x, name: e.target.value } : x))} className="flex-1 bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" />
               <button onClick={() => setFighters((prev: any) => prev.filter((x: any) => x.id !== f.id))} className="text-[#ff2b2b] px-2 py-1 rounded text-xs">🗑</button>
             </div>
           ))}
@@ -397,14 +396,14 @@ function MatchesTab({ matches, fighters, setMatches }: any) {
           <div className="flex justify-between items-center mb-3">
             <span className="font-bold text-sm">Раунд {m.round} · Матч {m.index}</span>
             <label className="flex items-center gap-2 text-xs text-[#ff4500] font-bold">
-              <input type="checkbox" checked={m.isFire || false} onChange={e => update(m.id, { isFire: e.target.checked })} className="w-4 h-4 accent-[#ff4500]" />
+              <input type="checkbox" checked={m.isFire || false} onChange={(e: any) => update(m.id, { isFire: e.target.checked })} className="w-4 h-4 accent-[#ff4500]" />
               🔥 ОГОНЬ
             </label>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <Field label="Статус"><select value={m.status} onChange={e => update(m.id, { status: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs"><option value="pending">Ожидание</option><option value="betting_open">Ставки</option><option value="tracks_open">Треки</option><option value="judging">Суд</option><option value="completed">Готово</option></select></Field>
-            <Field label="Балл 1"><input type="number" value={m.score1 ?? ""} onChange={e => update(m.id, { score1: e.target.value === "" ? null : +e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
-            <Field label="Балл 2"><input type="number" value={m.score2 ?? ""} onChange={e => update(m.id, { score2: e.target.value === "" ? null : +e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
+            <Field label="Статус"><select value={m.status} onChange={(e: any) => update(m.id, { status: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs"><option value="pending">Ожидание</option><option value="betting_open">Ставки</option><option value="tracks_open">Треки</option><option value="judging">Суд</option><option value="completed">Готово</option></select></Field>
+            <Field label="Балл 1"><input type="number" value={m.score1 ?? ""} onChange={(e: any) => update(m.id, { score1: e.target.value === "" ? null : +e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
+            <Field label="Балл 2"><input type="number" value={m.score2 ?? ""} onChange={(e: any) => update(m.id, { score2: e.target.value === "" ? null : +e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
           </div>
         </div>
       ))}
@@ -419,20 +418,20 @@ function TracksTab({ tracks, fighters, matches, onChange, onRemove, onAdd }: any
       <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Треки</h3>
       {tracks.map((t: any) => (
         <div key={t.id} className="bg-[#1d1d27] p-3 rounded mb-2 flex gap-2 items-center">
-          <select value={t.fighterId} onChange={e => onChange(t.id, { fighterId: e.target.value })} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
+          <select value={t.fighterId} onChange={(e: any) => onChange(t.id, { fighterId: e.target.value })} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
             {fighters.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
-          <select value={t.matchId} onChange={e => onChange(t.id, { matchId: e.target.value })} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
+          <select value={t.matchId} onChange={(e: any) => onChange(t.id, { matchId: e.target.value })} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
             {matches.map((m: any) => <option key={m.id} value={m.id}>R{m.round}M{m.index}</option>)}
           </select>
-          <input type="url" value={t.url} onChange={e => onChange(t.id, { url: e.target.value })} className="flex-1 bg-[#14141c] text-white text-xs px-2 py-1 rounded" />
+          <input type="url" value={t.url} onChange={(e: any) => onChange(t.id, { url: e.target.value })} className="flex-1 bg-[#14141c] text-white text-xs px-2 py-1 rounded" />
           <button onClick={() => onRemove(t.id)} className="text-[#ff2b2b] text-xs">🗑</button>
         </div>
       ))}
       <div className="mt-4 flex gap-2 items-center">
-        <select value={fid} onChange={e => setFid(e.target.value)} className="bg-[#1d1d27] text-white text-xs p-2 rounded"><option value="">Боец</option>{fighters.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
-        <select value={mid} onChange={e => setMid(e.target.value)} className="bg-[#1d1d27] text-white text-xs p-2 rounded"><option value="">Матч</option>{matches.map((m: any) => <option key={m.id} value={m.id}>R{m.round}M{m.index}</option>)}</select>
-        <input type="url" placeholder="URL" value={url} onChange={e => setUrl(e.target.value)} className="flex-1 bg-[#1d1d27] text-white text-xs p-2 rounded" />
+        <select value={fid} onChange={(e: any) => setFid(e.target.value)} className="bg-[#1d1d27] text-white text-xs p-2 rounded"><option value="">Боец</option>{fighters.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
+        <select value={mid} onChange={(e: any) => setMid(e.target.value)} className="bg-[#1d1d27] text-white text-xs p-2 rounded"><option value="">Матч</option>{matches.map((m: any) => <option key={m.id} value={m.id}>R{m.round}M{m.index}</option>)}</select>
+        <input type="url" placeholder="URL" value={url} onChange={(e: any) => setUrl(e.target.value)} className="flex-1 bg-[#1d1d27] text-white text-xs p-2 rounded" />
         <button onClick={() => { if (fid && mid && url) { onAdd({ id: "t_" + Date.now(), matchId: mid, fighterId: fid, url, isPublished: false, score: null }); setUrl(""); } }} className="bg-[#8b0033] text-white text-xs px-3 py-2 rounded">Добавить</button>
       </div>
     </div>
@@ -447,7 +446,7 @@ function StyleTab({ style, setStyle }: any) {
         <ColorField label="Primary" value={style.primary} onChange={(v: any) => setStyle({...style, primary: v})} />
         <ColorField label="Accent" value={style.accent} onChange={(v: any) => setStyle({...style, accent: v})} />
       </div>
-      <label className="flex items-center gap-2 mt-4 text-sm"><input type="checkbox" checked={style.grayscale === 1} onChange={e => setStyle({...style, grayscale: e.target.checked ? 1 : 0})} /> ЧБ-фильтр</label>
+      <label className="flex items-center gap-2 mt-4 text-sm"><input type="checkbox" checked={style.grayscale === 1} onChange={(e: any) => setStyle({...style, grayscale: e.target.checked ? 1 : 0})} /> ЧБ-фильтр</label>
     </div>
   );
 }
@@ -478,8 +477,8 @@ function ColorField({ label, value, onChange }: any) {
     <div className="flex flex-col gap-1">
       <span className="text-[#9aa0a6] text-xs uppercase tracking-widest">{label}</span>
       <div className="flex items-center gap-2">
-        <input type="color" value={value} onChange={e => onChange(e.target.value)} className="w-8 h-8 bg-transparent border border-[#333] rounded cursor-pointer" />
-        <input type="text" value={value} onChange={e => onChange(e.target.value)} className="flex-1 bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs font-mono" />
+        <input type="color" value={value} onChange={(e: any) => onChange(e.target.value)} className="w-8 h-8 bg-transparent border border-[#333] rounded cursor-pointer" />
+        <input type="text" value={value} onChange={(e: any) => onChange(e.target.value)} className="flex-1 bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs font-mono" />
       </div>
     </div>
   );
