@@ -17,6 +17,7 @@ export interface Fighter {
 }
 
 export interface Match {
+  pointsAwarded?: boolean;
   id: string; 
   round: number; 
   index: number; 

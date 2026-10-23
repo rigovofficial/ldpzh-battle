@@ -28,7 +28,7 @@ export default function AdminOverlay({
   brackets: bracketsProp, activeBracketId: activeBracketIdProp,
   users, season: seasonProp, maintenance: maintenanceProp, maintenanceConfig: maintenanceConfigProp, versionName: versionNameProp,
   tracks: tracksProp, style: styleProp, registrations,
-  onSave, onDeleteUser, onPatchUser, onApproveReg, onClose,
+  onSave, onDeleteUser, onPatchUser, onApproveReg, onResolveBets, onClose,
 }: any) {
   const [tab, setTab] = useState<TabId>("news");
   const [saving, setSaving] = useState(false);
@@ -109,14 +109,7 @@ export default function AdminOverlay({
           )}
 
           {tab === "matches" && (
-            <AdminMatchesTab matches={draftMatches} fighters={draftFighters} draftActiveBracket={draftActiveBracket} setDraftMatches={setDraftMatches} onResolveBets={async (matchId) => {
-              if (!confirm("Рассчитать ставки на этот матч? Очки будут начислены/списаны.")) return;
-              const res = await fetch("/api/admin/resolve-bets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId }) });
-              const json = await res.json();
-              if (!res.ok) return alert(json.error);
-              alert(`Успешно! Рассчитано ставок: ${json.resolvedCount}`);
-              await reload();
-            }} />
+            <AdminMatchesTab matches={draftMatches} fighters={draftFighters} draftActiveBracket={draftActiveBracket} setDraftMatches={setDraftMatches} onResolveBets={onResolveBets} />
           )}
 
           {tab === "tracks" && <AdminTracksTab tracks={draftTracks} fighters={draftFighters} matches={draftMatches} activeBracket={draftActiveBracket} setTracks={setDraftTracks} />}
