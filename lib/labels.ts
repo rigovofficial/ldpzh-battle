@@ -5,6 +5,13 @@ export const seasonTypeLabel: Record<SeasonType, string> = {
   intermediate: "Промежуточный",
 };
 
+export const seasonStatusLabel: Record<string, string> = {
+  draft: "Черновик",
+  qualifiers: "Отборочные",
+  main: "Основной этап",
+  finished: "Завершён",
+};
+
 export const roleLabel: Record<UserRole, string> = {
   anonymous: "Аноним",
   user: "Юзер",
