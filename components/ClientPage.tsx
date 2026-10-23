@@ -90,10 +90,19 @@ export default function ClientPage() {
           users={adminUsers} season={data.season} maintenance={data.maintenance}
           maintenanceConfig={data.maintenanceConfig} versionName={data.versionName}
           tracks={data.tracks} style={data.style} registrations={data.registrations}
-          onSave={async (p) => {
-            const res = await fetch("/api/admin/save", { method: "PUT", body: JSON.stringify(p) });
-            if (!res.ok) { alert("Ошибка сохранения"); return; }
-            await reload(); await reloadUsers(); alert("Сохранено!");
+                    onSave={async (p) => {
+            try {
+              const res = await fetch("/api/admin/save", { method: "PUT", body: JSON.stringify(p) });
+              const json = await res.json().catch(() => ({}));
+              if (!res.ok) { 
+                alert("Ошибка сохранения:\n" + (json.error || "Неизвестная ошибка")); 
+                return; 
+              }
+              await reload(); await reloadUsers(); alert("Сохранено!");
+            } catch (err: any) {
+              alert("Сетевая ошибка: " + err.message);
+            }
+          }}
           }}
           onDeleteUser={async (id) => { await fetch(`/api/admin/users/${id}`, { method: "DELETE" }); await reloadUsers(); await reload(); }}
           onPatchUser={async (id, p) => { await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) }); await reloadUsers(); }}
