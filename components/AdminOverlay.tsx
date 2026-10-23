@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { NewsItem, ArchiveConfig, Match, Fighter, User, Season, Track, StyleConfig } from "@/lib/types";
-import { matchStatusLabel } from "@/lib/labels";
-import { regenerateBracket, resizeFighterPool } from "@/lib/bracket-utils";
+import type { NewsItem, ArchiveConfig, Match, Fighter, User, Season, Track, StyleConfig, Bracket } from "@/lib/types";
 
 const TABS = [
   { id: "news", label: "📰 Новости" },
-  { id: "bracket", label: "🥊 Сетка" },
+  { id: "bracket", label: "🥊 Сетки" },
   { id: "season", label: "📅 Сезон" },
   { id: "registrations", label: "📝 Записи" },
   { id: "users", label: "👥 Юзеры" },
@@ -21,11 +19,13 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function AdminOverlay({
   news: newsProp, archive: archiveProp, matches: matchesProp, fighters: fightersProp,
+  brackets: bracketsProp, activeBracketId: activeBracketIdProp,
   users, season: seasonProp, maintenance: maintenanceProp, maintenanceConfig: maintenanceConfigProp, versionName: versionNameProp,
   tracks: tracksProp, style: styleProp, registrations,
   onSave, onDeleteUser, onPatchUser, onApproveReg, onClose,
 }: {
   news: NewsItem[]; archive: ArchiveConfig; matches: Match[]; fighters: Fighter[]; users: User[];
+  brackets: Bracket[]; activeBracketId: string;
   season: Season; maintenance: boolean; maintenanceConfig: any; versionName: string;
   tracks: Track[]; style: StyleConfig; registrations: any[];
   onSave: (payload: any) => Promise<void>;
@@ -41,6 +41,8 @@ export default function AdminOverlay({
   const [draftArchive, setDraftArchive] = useState<ArchiveConfig>(JSON.parse(JSON.stringify(archiveProp)));
   const [draftMatches, setDraftMatches] = useState<Match[]>(JSON.parse(JSON.stringify(matchesProp)));
   const [draftFighters, setDraftFighters] = useState<Fighter[]>(JSON.parse(JSON.stringify(fightersProp)));
+  const [draftBrackets, setDraftBrackets] = useState<Bracket[]>(JSON.parse(JSON.stringify(bracketsProp)));
+  const [draftActiveBracket, setDraftActiveBracket] = useState(activeBracketIdProp);
   const [draftSeason, setDraftSeason] = useState<Season>(JSON.parse(JSON.stringify(seasonProp)));
   const [draftMaintenance, setDraftMaintenance] = useState(maintenanceProp);
   const [draftMaintConfig, setDraftMaintConfig] = useState(maintenanceConfigProp || { title: "ТЕХРАБОТЫ", subtitle: "ЗАХОДИ ПОЗЖЕ", imageUrl: "" });
@@ -48,20 +50,31 @@ export default function AdminOverlay({
   const [draftTracks, setDraftTracks] = useState<Track[]>(JSON.parse(JSON.stringify(tracksProp)));
   const [draftStyle, setDraftStyle] = useState<StyleConfig>(JSON.parse(JSON.stringify(styleProp)));
 
+  // Синхронизация при сохранении
   useEffect(() => {
-    if (draftSeason && !draftSeason.registration) {
-      setDraftSeason(prev => ({ ...prev, registration: { enabled: true, buttonText: "ЗАПИСАТЬСЯ НА БАТЛ", buttonColor: "#8b0033" } }));
-    }
-  }, [draftSeason]);
+    setDraftNews(JSON.parse(JSON.stringify(newsProp)));
+    setDraftArchive(JSON.parse(JSON.stringify(archiveProp)));
+    setDraftMatches(JSON.parse(JSON.stringify(matchesProp)));
+    setDraftFighters(JSON.parse(JSON.stringify(fightersProp)));
+    setDraftBrackets(JSON.parse(JSON.stringify(bracketsProp)));
+    setDraftActiveBracket(activeBracketIdProp);
+    setDraftSeason(JSON.parse(JSON.stringify(seasonProp)));
+    setDraftMaintenance(maintenanceProp);
+    setDraftMaintConfig(maintenanceConfigProp);
+    setDraftVersion(versionNameProp);
+    setDraftTracks(JSON.parse(JSON.stringify(tracksProp)));
+    setDraftStyle(JSON.parse(JSON.stringify(styleProp)));
+  }, [newsProp, archiveProp, matchesProp, fightersProp, bracketsProp, activeBracketIdProp, seasonProp, maintenanceProp, maintenanceConfigProp, versionNameProp, tracksProp, styleProp]);
 
-  const dirty = JSON.stringify({ news: draftNews, archive: draftArchive, matches: draftMatches, fighters: draftFighters, season: draftSeason, maintenance: draftMaintenance, maintConfig: draftMaintConfig, version: draftVersion, tracks: draftTracks, style: draftStyle }) !==
-                JSON.stringify({ news: newsProp, archive: archiveProp, matches: matchesProp, fighters: fightersProp, season: seasonProp, maintenance: maintenanceProp, maintConfig: maintenanceConfigProp, version: versionNameProp, tracks: tracksProp, style: styleProp });
+  const dirty = JSON.stringify({ news: draftNews, archive: draftArchive, matches: draftMatches, fighters: draftFighters, brackets: draftBrackets, active: draftActiveBracket, season: draftSeason, maintenance: draftMaintenance, maintConfig: draftMaintConfig, version: draftVersion, tracks: draftTracks, style: draftStyle }) !==
+                JSON.stringify({ news: newsProp, archive: archiveProp, matches: matchesProp, fighters: fightersProp, brackets: bracketsProp, active: activeBracketIdProp, season: seasonProp, maintenance: maintenanceProp, maintConfig: maintenanceConfigProp, version: versionNameProp, tracks: tracksProp, style: styleProp });
 
   async function handleSave() {
     setSaving(true);
     try { 
       await onSave({ 
         news: draftNews, archive: draftArchive, matches: draftMatches, fighters: draftFighters, 
+        brackets: draftBrackets, activeBracketId: draftActiveBracket,
         season: draftSeason, maintenance: draftMaintenance, maintenanceConfig: draftMaintConfig, 
         versionName: draftVersion, tracks: draftTracks, style: draftStyle 
       }); 
@@ -71,17 +84,74 @@ export default function AdminOverlay({
   function handleCancel() {
     setDraftNews(JSON.parse(JSON.stringify(newsProp))); setDraftArchive(JSON.parse(JSON.stringify(archiveProp)));
     setDraftMatches(JSON.parse(JSON.stringify(matchesProp))); setDraftFighters(JSON.parse(JSON.stringify(fightersProp)));
+    setDraftBrackets(JSON.parse(JSON.stringify(bracketsProp))); setDraftActiveBracket(activeBracketIdProp);
     setDraftSeason(JSON.parse(JSON.stringify(seasonProp))); setDraftMaintenance(maintenanceProp);
     setDraftMaintConfig(JSON.parse(JSON.stringify(maintenanceConfigProp))); setDraftVersion(versionNameProp);
     setDraftTracks(JSON.parse(JSON.stringify(tracksProp))); setDraftStyle(JSON.parse(JSON.stringify(styleProp)));
   }
 
   function handleClose() { if (dirty && !confirm("Закрыть без сохранения?")) return; onClose(); }
-  
-  function createFighter(name: string): string {
-    const newId = "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
-    setDraftFighters((prev) => [...prev, { id: newId, name, userId: null, prevScore: 0, totalScore: 0 }]);
-    return newId;
+
+  // Создание сетки
+  function createBracket(type: "classic" | "free") {
+    const name = prompt("Название сетки (например, 'Сезон 2'):");
+    if (!name) return;
+    
+    let size = 0;
+    if (type === "classic") {
+      const input = prompt("Участников (4, 8, 16, 32):");
+      if (!input) return;
+      size = parseInt(input);
+      if (![4, 8, 16, 32].includes(size)) return alert("Только 4, 8, 16 или 32");
+    }
+
+    const newBracketId = crypto.randomUUID();
+    const newBracket: Bracket = { id: newBracketId, name, type };
+
+    const newFighters: Fighter[] = [];
+    const newMatches: Match[] = [];
+
+    if (type === "classic") {
+      for (let i = 0; i < size; i++) {
+        newFighters.push({ id: `f_${Date.now()}_${i}`, name: `Слот ${i+1}`, userId: null, prevScore: 0, totalScore: 0, bracketId: newBracketId });
+      }
+      const rounds = Math.round(Math.log2(size));
+      for (let r = 1; r <= rounds; r++) {
+        const count = size / Math.pow(2, r);
+        for (let i = 1; i <= count; i++) {
+          newMatches.push({ 
+            id: `m_${Date.now()}_${r}_${i}`, round: r, index: i, fighter1: null, fighter2: null, 
+            isCompleted: false, isBettingOpen: false, isTracksOpen: false, isFinal: r === rounds, 
+            odds1: 1.2, odds2: 1.2, score1: null, score2: null, winner: null, bracketId: newBracketId 
+          });
+        }
+      }
+      newFighters.forEach((f, idx) => {
+        const match = newMatches[Math.floor(idx / 2)];
+        if (idx % 2 === 0) match.fighter1 = f.id; else match.fighter2 = f.id;
+      });
+    } else {
+      // Свободная сетка (пустая, матчи добавляются вручную)
+      // Можно сразу создать 1 тестовый матч
+      newMatches.push({ 
+        id: `m_${Date.now()}_1_1`, round: 1, index: 1, fighter1: null, fighter2: null, 
+        isCompleted: false, isBettingOpen: false, isTracksOpen: false, isFinal: false, 
+        odds1: 1.2, odds2: 1.2, score1: null, score2: null, winner: null, bracketId: newBracketId 
+      });
+    }
+
+    setDraftBrackets([...draftBrackets, newBracket]);
+    setDraftFighters([...draftFighters, ...newFighters]);
+    setDraftMatches([...draftMatches, ...newMatches]);
+    setDraftActiveBracket(newBracketId);
+  }
+
+  function deleteBracket(id: string) {
+    if (!confirm("Удалить сетку и все её матчи?")) return;
+    setDraftBrackets(draftBrackets.filter(b => b.id !== id));
+    setDraftFighters(draftFighters.filter(f => f.bracketId !== id));
+    setDraftMatches(draftMatches.filter(m => m.bracketId !== id));
+    if (draftActiveBracket === id) setDraftActiveBracket(draftBrackets.find(b => b.id !== id)?.id || "");
   }
 
   return (
@@ -104,26 +174,119 @@ export default function AdminOverlay({
 
         <div className="bg-[#14141c] border border-[#00a3ff] rounded-2xl p-5 min-h-[400px]">
           
+          {/* НОВОСТИ */}
           {tab === "news" && (
-            <NewsTab news={draftNews} archive={draftArchive} 
-              onChangeNews={(id: string, patch: any) => setDraftNews(prev => prev.map((n: any) => n.id === id ? { ...n, ...patch } : n))} 
-              onRemoveNews={(id: string) => { if (confirm("Удалить?")) setDraftNews(prev => prev.filter((n: any) => n.id !== id)); }} 
-              onAddNews={() => setDraftNews(prev => [...prev, { id: "n_" + Date.now(), title: "НОВОСТЬ", subtitle: "подпись", url: "https://", bgColor: "#8b0033", borderColor: "#00a3ff", textColor: "#ffffff", enabled: true }])} 
-              onChangeArchive={(patch: any) => setDraftArchive(prev => ({ ...prev, ...patch }))} 
-            />
+            <div className="flex flex-col gap-6">
+              <div>
+                <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">Новостные баннеры</h3>
+                <div className="flex flex-col gap-4 mt-4">
+                  {draftNews.map((n, i) => (
+                    <div key={n.id} className="bg-[#1d1d27] rounded-xl p-4 border-l-4" style={{ borderLeftColor: n.borderColor }}>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-[#9aa0a6] text-xs uppercase tracking-widest">Баннер #{i + 1}</span>
+                        <button onClick={() => { if (confirm("Удалить?")) setDraftNews(prev => prev.filter(x => x.id !== n.id)) }} className="text-[#ff2b2b] border border-[#ff2b2b] px-3 py-1 rounded text-xs hover:bg-[#ff2b2b] hover:text-white">🗑 Удалить</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <Field label="Заголовок"><input type="text" value={n.title} onChange={(e) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, title: e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                        <Field label="Подпись"><input type="text" value={n.subtitle} onChange={(e) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, subtitle: e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                        <Field label="Ссылка" className="col-span-2"><input type="url" value={n.url} onChange={(e) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, url: e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <ColorField label="Фон" value={n.bgColor} onChange={(v) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, bgColor: v} : x))} />
+                        <ColorField label="Рамка" value={n.borderColor} onChange={(v) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, borderColor: v} : x))} />
+                        <ColorField label="Текст" value={n.textColor} onChange={(v) => setDraftNews(prev => prev.map(x => x.id === n.id ? {...x, textColor: v} : x))} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setDraftNews(prev => [...prev, { id: "n_" + Date.now(), title: "НОВОСТЬ", subtitle: "подпись", url: "https://", bgColor: "#8b0033", borderColor: "#00a3ff", textColor: "#ffffff", enabled: true }])} className="mt-4 bg-[#8b0033] text-white font-bold px-4 py-2 rounded hover:opacity-90">+ Добавить</button>
+              </div>
+              <div className="border-t border-[#2a2a36] pt-6">
+                <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Архив</h3>
+                <div className="flex flex-col gap-3 max-w-[720px]">
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draftArchive.enabled} onChange={(e) => setDraftArchive({...draftArchive, enabled: e.target.checked})} /> Включен</label>
+                  <Field label="Заголовок"><input type="text" value={draftArchive.title} onChange={(e) => setDraftArchive({...draftArchive, title: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                  <Field label="Подпись"><input type="text" value={draftArchive.subtitle} onChange={(e) => setDraftArchive({...draftArchive, subtitle: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                  <Field label="Ссылка"><input type="url" value={draftArchive.url} onChange={(e) => setDraftArchive({...draftArchive, url: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
+                </div>
+              </div>
+            </div>
           )}
 
+          {/* СЕТКИ */}
           {tab === "bracket" && (
-            <BracketTab matches={draftMatches} fighters={draftFighters} setMatches={setDraftMatches} setFighters={setDraftFighters} createFighter={createFighter} />
+            <div>
+              <div className="flex gap-4 mb-6 items-center flex-wrap">
+                <select value={draftActiveBracket} onChange={e => setDraftActiveBracket(e.target.value)} className="bg-[#1d1d27] text-white p-2 rounded font-bold border border-[#333]">
+                  {draftBrackets.map(b => <option key={b.id} value={b.id}>{b.name} ({b.type === 'classic' ? 'Классика' : 'Свободная'})</option>)}
+                </select>
+                <button onClick={() => createBracket("classic")} className="bg-[#00a3ff] text-[#002233] px-4 py-2 rounded font-bold">+ Классическая</button>
+                <button onClick={() => createBracket("free")} className="bg-[#ffb020] text-[#2a1c00] px-4 py-2 rounded font-bold">+ Свободная</button>
+                <button onClick={() => deleteBracket(draftActiveBracket)} className="bg-[#ff2b2b] text-white px-4 py-2 rounded font-bold ml-auto">Удалить сетку</button>
+              </div>
+
+              <div className="grid gap-4 items-start" style={{ gridTemplateColumns: `repeat(${Math.max(...draftMatches.filter(m=>m.bracketId===draftActiveBracket).map(m => m.round), 1)}, minmax(230px, 1fr))` }}>
+                {Array.from({ length: Math.max(...draftMatches.filter(m=>m.bracketId===draftActiveBracket).map(m => m.round), 1) }, (_, i) => i + 1).map((r) => {
+                  const roundMatches = draftMatches.filter(m => m.bracketId === draftActiveBracket && m.round === r).sort((a,b)=>a.index-b.index);
+                  return (
+                    <div key={r}>
+                      <div className="text-[10px] uppercase tracking-widest text-[#9aa0a6] mb-2 font-bold">Раунд {r}</div>
+                      <div className="flex flex-col gap-3">
+                        {roundMatches.map(m => (
+                          <div key={m.id} className="bg-[#1d1d27] border border-[#2a2a36] rounded p-3">
+                            <div className="flex justify-between mb-2">
+                               <span className="text-[10px] text-[#9aa0a6]">Матч {m.index}</span>
+                               <button onClick={() => { if(confirm("Удалить матч?")) setDraftMatches(prev => prev.filter(x => x.id !== m.id)) }} className="text-[#ff2b2b] text-[10px]">🗑</button>
+                            </div>
+                            <FighterRow match={m} slot={1} fighters={draftFighters.filter(f => f.bracketId === draftActiveBracket)} onUpdate={(p) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, ...p} : x))} onSetWinner={() => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, winner: m.fighter1} : x))} createFighter={(name) => {
+                              const newId = "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+                              setDraftFighters(prev => [...prev, { id: newId, name, userId: null, prevScore: 0, totalScore: 0, bracketId: draftActiveBracket }]);
+                              return newId;
+                            }} />
+                            <FighterRow match={m} slot={2} fighters={draftFighters.filter(f => f.bracketId === draftActiveBracket)} onUpdate={(p) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, ...p} : x))} onSetWinner={() => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, winner: m.fighter2} : x))} createFighter={(name) => {
+                              const newId = "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+                              setDraftFighters(prev => [...prev, { id: newId, name, userId: null, prevScore: 0, totalScore: 0, bracketId: draftActiveBracket }]);
+                              return newId;
+                            }} />
+                            <div className="flex gap-1 mt-2">
+                              <button onClick={() => {
+                                if (!m.winner || !m.fighter1 || !m.fighter2) return;
+                                const nextMatch = draftMatches.find(x => x.bracketId === draftActiveBracket && x.round === m.round + 1 && x.index === Math.ceil(m.index / 2));
+                                if (nextMatch) {
+                                  const slot = m.index % 2 === 1 ? "fighter1" : "fighter2";
+                                  setDraftMatches(prev => prev.map(x => x.id === nextMatch.id ? {...x, [slot]: m.winner} : x));
+                                }
+                                setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, isCompleted: true} : x));
+                              }} className="text-[10px] bg-[#35d07f] text-[#062a16] font-bold px-2 py-1 rounded w-full">✓ Завершить и дальше</button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              <label className="flex items-center gap-1 text-[9px] text-[#ccc]"><input type="checkbox" checked={m.isCompleted} onChange={e => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, isCompleted: e.target.checked} : x))} /> Завершён</label>
+                              <label className="flex items-center gap-1 text-[9px] text-[#ff4500]"><input type="checkbox" checked={m.isFinal} onChange={e => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, isFinal: e.target.checked} : x))} /> 🔥 Финал</label>
+                              <label className="flex items-center gap-1 text-[9px] text-[#35d07f]"><input type="checkbox" checked={m.isBettingOpen} onChange={e => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, isBettingOpen: e.target.checked} : x))} /> Ставки</label>
+                              <label className="flex items-center gap-1 text-[9px] text-[#00a3ff]"><input type="checkbox" checked={m.isTracksOpen} onChange={e => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, isTracksOpen: e.target.checked} : x))} /> Треки</label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button onClick={() => {
+                const nextIndex = draftMatches.filter(m => m.bracketId === draftActiveBracket && m.round === 1).length + 1;
+                setDraftMatches(prev => [...prev, { id: `m_${Date.now()}`, round: 1, index: nextIndex, fighter1: null, fighter2: null, isCompleted: false, isBettingOpen: false, isTracksOpen: false, isFinal: false, odds1: 1.2, odds2: 1.2, score1: null, score2: null, winner: null, bracketId: draftActiveBracket }]);
+              }} className="mt-4 bg-[#8b0033] text-white px-4 py-2 rounded text-sm font-bold">+ Добавить матч (для свободной сетки)</button>
+            </div>
           )}
 
+          {/* СЕЗОН */}
           {tab === "season" && (
             <div className="flex flex-col gap-6">
               <div>
                 <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Сезон</h3>
                 <div className="flex flex-col gap-3 max-w-[720px]">
-                  <Field label="Название"><input type="text" value={draftSeason.title} onChange={(e: any) => setDraftSeason({...draftSeason, title: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
-                  <Field label="Номер"><input type="number" value={draftSeason.number} onChange={(e: any) => setDraftSeason({...draftSeason, number: +e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                  <Field label="Название"><input type="text" value={draftSeason.title} onChange={(e) => setDraftSeason({...draftSeason, title: e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                  <Field label="Номер"><input type="number" value={draftSeason.number} onChange={(e) => setDraftSeason({...draftSeason, number: +e.target.value})} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
                 </div>
               </div>
               
@@ -132,78 +295,37 @@ export default function AdminOverlay({
                 <div className="flex flex-col gap-4 max-w-[720px] p-4 bg-[#1d1d27] rounded-xl border border-[#333]">
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={draftSeason.registration?.enabled ?? false} 
-                      onChange={(e: any) => setDraftSeason({
-                        ...draftSeason, 
-                        registration: {
-                          enabled: e.target.checked,
-                          buttonText: draftSeason.registration?.buttonText ?? "ЗАПИСАТЬСЯ НА БАТЛ",
-                          buttonColor: draftSeason.registration?.buttonColor ?? "#8b0033"
-                        }
-                      })} 
-                      className="w-4 h-4 accent-[#8b0033]" /> 
-                    Включить
+                      onChange={(e) => setDraftSeason({...draftSeason, registration: { enabled: e.target.checked, buttonText: draftSeason.registration?.buttonText ?? "ЗАПИСАТЬСЯ", buttonColor: draftSeason.registration?.buttonColor ?? "#8b0033" }})} className="w-4 h-4 accent-[#8b0033]" /> Включить
                   </label>
-                  <Field label="Текст">
-                    <input type="text" value={draftSeason.registration?.buttonText ?? ""} 
-                      onChange={(e: any) => setDraftSeason({
-                        ...draftSeason, 
-                        registration: {
-                          enabled: draftSeason.registration?.enabled ?? true,
-                          buttonText: e.target.value,
-                          buttonColor: draftSeason.registration?.buttonColor ?? "#8b0033"
-                        }
-                      })} 
-                      className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
-                  </Field>
-                  <Field label="Цвет">
-                    <input type="color" value={draftSeason.registration?.buttonColor ?? "#8b0033"} 
-                      onChange={(e: any) => setDraftSeason({
-                        ...draftSeason, 
-                        registration: {
-                          enabled: draftSeason.registration?.enabled ?? true,
-                          buttonText: draftSeason.registration?.buttonText ?? "ЗАПИСАТЬСЯ НА БАТЛ",
-                          buttonColor: e.target.value
-                        }
-                      })} 
-                      className="w-16 h-8 bg-transparent border border-[#333] rounded" />
-                  </Field>
+                  <Field label="Текст"><input type="text" value={draftSeason.registration?.buttonText ?? ""} onChange={(e) => setDraftSeason({...draftSeason, registration: { enabled: draftSeason.registration?.enabled ?? true, buttonText: e.target.value, buttonColor: draftSeason.registration?.buttonColor ?? "#8b0033" }})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                  <Field label="Цвет"><input type="color" value={draftSeason.registration?.buttonColor ?? "#8b0033"} onChange={(e) => setDraftSeason({...draftSeason, registration: { enabled: draftSeason.registration?.enabled ?? true, buttonText: draftSeason.registration?.buttonText ?? "ЗАПИСАТЬСЯ", buttonColor: e.target.value }})} className="w-16 h-8 bg-transparent border border-[#333] rounded" /></Field>
                 </div>
               </div>
 
               <div className="border-t border-[#2a2a36] pt-6">
                 <h3 className="text-[#ff2b2b] text-sm uppercase tracking-widest mb-4">Техработы (Глушилка)</h3>
                 <div className="flex flex-col gap-4 max-w-[720px] p-4 bg-[#1d1d27] rounded-xl border border-[#333]">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={draftMaintenance} onChange={(e: any) => setDraftMaintenance(e.target.checked)} className="w-4 h-4 accent-[#ff2b2b]" /> 
-                    Включить техработы
-                  </label>
-                  <Field label="Заголовок глушилки">
-                    <input type="text" value={draftMaintConfig.title} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, title: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
-                  </Field>
-                  <Field label="Подзаголовок глушилки">
-                    <input type="text" value={draftMaintConfig.subtitle} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, subtitle: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
-                  </Field>
-                  <Field label="Ссылка на картинку (Маркин)">
-                    <input type="url" value={draftMaintConfig.imageUrl} onChange={(e: any) => setDraftMaintConfig({...draftMaintConfig, imageUrl: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" />
-                  </Field>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draftMaintenance} onChange={(e) => setDraftMaintenance(e.target.checked)} className="w-4 h-4 accent-[#ff2b2b]" /> Включить техработы</label>
+                  <Field label="Заголовок"><input type="text" value={draftMaintConfig.title} onChange={(e) => setDraftMaintConfig({...draftMaintConfig, title: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                  <Field label="Подзаголовок"><input type="text" value={draftMaintConfig.subtitle} onChange={(e) => setDraftMaintConfig({...draftMaintConfig, subtitle: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
+                  <Field label="Ссылка на картинку (Маркин)"><input type="url" value={draftMaintConfig.imageUrl} onChange={(e) => setDraftMaintConfig({...draftMaintConfig, imageUrl: e.target.value})} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-3 py-2" /></Field>
                 </div>
               </div>
 
               <div className="border-t border-[#2a2a36] pt-6">
                 <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Версия сайта</h3>
-                <Field label="Название версии">
-                  <input type="text" value={draftVersion} onChange={(e: any) => setDraftVersion(e.target.value)} className="w-full max-w-[720px] bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" />
-                </Field>
+                <Field label="Название версии"><input type="text" value={draftVersion} onChange={(e) => setDraftVersion(e.target.value)} className="w-full max-w-[720px] bg-[#1d1d27] text-white border border-[#333] rounded px-3 py-2" /></Field>
               </div>
             </div>
           )}
 
+          {/* ЗАПИСИ */}
           {tab === "registrations" && (
             <div>
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Заявки на участие</h3>
               {registrations.length === 0 ? <div className="text-[#9aa0a6]">Нет активных заявок.</div> : (
                 <table className="w-full text-[13px] border-collapse">
-                  <thead><tr className="text-[#9aa0a6] text-[11px] uppercase tracking-widest"><th className="text-left py-2">Юзернейм (ID)</th><th className="text-left py-2">Желаемый ник</th><th className="text-left py-2">Действие</th></tr></thead>
+                  <thead><tr className="text-[#9aa0a6] text-[11px] uppercase tracking-widest"><th className="text-left py-2">ID</th><th className="text-left py-2">Желаемый ник</th><th className="text-left py-2">Действие</th></tr></thead>
                   <tbody>
                     {registrations.map((r: any) => (
                       <tr key={r.id} className="border-t border-[#2a2a36]">
@@ -218,19 +340,20 @@ export default function AdminOverlay({
             </div>
           )}
 
+          {/* ЮЗЕРЫ */}
           {tab === "users" && (
             <div className="flex flex-col gap-6">
               <div>
                 <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Юзеры</h3>
                 <div className="flex flex-col gap-3">
-                  {users.map((u: any) => (
+                  {users.map((u) => (
                     <div key={u.id} className="bg-[#1d1d27] rounded-xl p-4 border border-[#2a2a36] flex justify-between items-center">
                       <div>
                         <div className="text-sm font-bold">{u.displayName} <span className="text-[#666] font-mono text-xs">({u.login})</span></div>
-                        <div className="text-[#00a3ff] text-xs mt-1">{u.role}</div>
+                        <div className="text-[#00a3ff] text-xs mt-1">{u.role} · {u.predictionsPoints || 0} 🔮</div>
                       </div>
                       <div className="flex gap-2">
-                        <select value={u.role} onChange={(e: any) => onPatchUser(u.id, { role: e.target.value })} className="bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs">
+                        <select value={u.role} onChange={(e) => onPatchUser(u.id, { role: e.target.value })} className="bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs">
                           <option value="user">Юзер</option><option value="participant">Участник</option><option value="admin">Админ</option>
                         </select>
                         <button onClick={() => onDeleteUser(u.id)} className="text-[#ff2b2b] border border-[#ff2b2b] px-2 py-1 rounded text-xs hover:bg-[#ff2b2b] hover:text-white">🗑</button>
@@ -239,88 +362,69 @@ export default function AdminOverlay({
                   ))}
                 </div>
               </div>
-              <div className="border-t border-[#2a2a36] pt-6">
-                <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Бойцы</h3>
-                <div className="flex flex-col gap-2">
-                  {draftFighters.map((f: any) => (
-                    <div key={f.id} className="flex gap-2 items-center bg-[#1d1d27] p-2 rounded">
-                      <input type="text" value={f.name} onChange={(e: any) => setDraftFighters((prev: any) => prev.map((x: any) => x.id === f.id ? { ...x, name: e.target.value } : x))} className="flex-1 bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" />
-                      <button onClick={() => setDraftFighters((prev: any) => prev.filter((x: any) => x.id !== f.id))} className="text-[#ff2b2b] px-2 py-1 rounded text-xs">🗑</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 
+          {/* МАТЧИ */}
           {tab === "matches" && (
             <div className="flex flex-col gap-3">
-              <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-2">Матчи</h3>
-              {[...draftMatches].sort((a: any, b: any) => a.round - b.round || a.index - b.index).map((m: any) => (
+              <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-2">Все матчи (активная сетка)</h3>
+              {draftMatches.filter(m => m.bracketId === draftActiveBracket).sort((a, b) => a.round - b.round || a.index - b.index).map((m) => (
                 <div key={m.id} className="bg-[#1d1d27] border border-[#2a2a36] rounded p-4">
                   <div className="flex justify-between items-center mb-3">
                     <span className="font-bold text-sm">Раунд {m.round} · Матч {m.index}</span>
-                    <label className="flex items-center gap-2 text-xs text-[#ff4500] font-bold">
-                      <input type="checkbox" checked={m.isFire || false} onChange={(e: any) => setDraftMatches((prev: any) => prev.map((x: any) => x.id === m.id ? { ...x, isFire: e.target.checked } : x))} className="w-4 h-4 accent-[#ff4500]" />
-                      🔥 ОГОНЬ
-                    </label>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Field label="Статус"><select value={m.status} onChange={(e: any) => setDraftMatches((prev: any) => prev.map((x: any) => x.id === m.id ? { ...x, status: e.target.value } : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs"><option value="pending">Ожидание</option><option value="betting_open">Ставки</option><option value="tracks_open">Треки</option><option value="judging">Суд</option><option value="completed">Готово</option></select></Field>
-                    <Field label="Балл 1"><input type="number" value={m.score1 ?? ""} onChange={(e: any) => setDraftMatches((prev: any) => prev.map((x: any) => x.id === m.id ? { ...x, score1: e.target.value === "" ? null : +e.target.value } : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
-                    <Field label="Балл 2"><input type="number" value={m.score2 ?? ""} onChange={(e: any) => setDraftMatches((prev: any) => prev.map((x: any) => x.id === m.id ? { ...x, score2: e.target.value === "" ? null : +e.target.value } : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
+                  <div className="grid grid-cols-4 gap-2">
+                    <Field label="Балл 1"><input type="number" value={m.score1 ?? ""} onChange={(e) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, score1: e.target.value === "" ? null : +e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
+                    <Field label="Балл 2"><input type="number" value={m.score2 ?? ""} onChange={(e) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, score2: e.target.value === "" ? null : +e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
+                    <Field label="Кэф 1"><input type="number" step="0.01" value={m.odds1} onChange={(e) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, odds1: +e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
+                    <Field label="Кэф 2"><input type="number" step="0.01" value={m.odds2} onChange={(e) => setDraftMatches(prev => prev.map(x => x.id === m.id ? {...x, odds2: +e.target.value} : x))} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-xs" /></Field>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
+          {/* ТРЕКИ */}
           {tab === "tracks" && (
             <div>
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Треки</h3>
-              {draftTracks.map((t: any) => (
+              {draftTracks.map((t) => (
                 <div key={t.id} className="bg-[#1d1d27] p-3 rounded mb-2 flex gap-2 items-center">
-                  <select value={t.fighterId} onChange={(e: any) => setDraftTracks((prev: any) => prev.map((x: any) => x.id === t.id ? { ...x, fighterId: e.target.value } : x))} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
-                    {draftFighters.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  <select value={t.fighterId} onChange={(e) => setDraftTracks(prev => prev.map(x => x.id === t.id ? {...x, fighterId: e.target.value} : x))} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
+                    {draftFighters.filter(f => f.bracketId === draftActiveBracket).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
-                  <select value={t.matchId} onChange={(e: any) => setDraftTracks((prev: any) => prev.map((x: any) => x.id === t.id ? { ...x, matchId: e.target.value } : x))} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
-                    {draftMatches.map((m: any) => <option key={m.id} value={m.id}>R{m.round}M{m.index}</option>)}
+                  <select value={t.matchId} onChange={(e) => setDraftTracks(prev => prev.map(x => x.id === t.id ? {...x, matchId: e.target.value} : x))} className="bg-[#14141c] text-white text-xs px-2 py-1 rounded">
+                    {draftMatches.filter(m => m.bracketId === draftActiveBracket).map(m => <option key={m.id} value={m.id}>R{m.round}M{m.index}</option>)}
                   </select>
-                  <input type="url" value={t.url} onChange={(e: any) => setDraftTracks((prev: any) => prev.map((x: any) => x.id === t.id ? { ...x, url: e.target.value } : x))} className="flex-1 bg-[#14141c] text-white text-xs px-2 py-1 rounded" />
-                  <button onClick={() => { if (confirm("Удалить?")) setDraftTracks((prev: any) => prev.filter((x: any) => x.id !== t.id)) }} className="text-[#ff2b2b] text-xs">🗑</button>
+                  <input type="url" value={t.url} onChange={(e) => setDraftTracks(prev => prev.map(x => x.id === t.id ? {...x, url: e.target.value} : x))} className="flex-1 bg-[#14141c] text-white text-xs px-2 py-1 rounded" />
+                  <button onClick={() => { if (confirm("Удалить?")) setDraftTracks(prev => prev.filter(x => x.id !== t.id)) }} className="text-[#ff2b2b] text-xs">🗑</button>
                 </div>
               ))}
-              <div className="mt-4 flex gap-2 items-center">
-                <select id="newTrackFighter" className="bg-[#1d1d27] text-white text-xs p-2 rounded"><option value="">Боец</option>{draftFighters.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
-                <select id="newTrackMatch" className="bg-[#1d1d27] text-white text-xs p-2 rounded"><option value="">Матч</option>{draftMatches.map((m: any) => <option key={m.id} value={m.id}>R{m.round}M{m.index}</option>)}</select>
-                <input type="url" id="newTrackUrl" placeholder="URL" className="flex-1 bg-[#1d1d27] text-white text-xs p-2 rounded" />
-                <button onClick={() => { 
-                  const f = (document.getElementById("newTrackFighter") as HTMLSelectElement).value;
-                  const m = (document.getElementById("newTrackMatch") as HTMLSelectElement).value;
-                  const u = (document.getElementById("newTrackUrl") as HTMLInputElement).value;
-                  if (f && m && u) { setDraftTracks((prev: any) => [...prev, { id: "t_" + Date.now(), matchId: m, fighterId: f, url: u, isPublished: false, score: null }]); (document.getElementById("newTrackUrl") as HTMLInputElement).value = ""; }
-                }} className="bg-[#8b0033] text-white text-xs px-3 py-2 rounded">Добавить</button>
-              </div>
             </div>
           )}
 
+          {/* СТИЛИ */}
           {tab === "style" && (
             <div className="flex flex-col gap-4">
               <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-2">Стили</h3>
               <div className="grid grid-cols-2 gap-4 max-w-[720px]">
-                <ColorField label="Primary" value={draftStyle.primary} onChange={(v: any) => setDraftStyle({...draftStyle, primary: v})} />
-                <ColorField label="Accent" value={draftStyle.accent} onChange={(v: any) => setDraftStyle({...draftStyle, accent: v})} />
+                <ColorField label="Primary" value={draftStyle.primary} onChange={(v) => setDraftStyle({...draftStyle, primary: v})} />
+                <ColorField label="Accent" value={draftStyle.accent} onChange={(v) => setDraftStyle({...draftStyle, accent: v})} />
+                <ColorField label="Активный" value={draftStyle.participantActive} onChange={(v) => setDraftStyle({...draftStyle, participantActive: v})} />
+                <ColorField label="Прошёл" value={draftStyle.participantWin} onChange={(v) => setDraftStyle({...draftStyle, participantWin: v})} />
               </div>
-              <label className="flex items-center gap-2 mt-4 text-sm"><input type="checkbox" checked={draftStyle.grayscale === 1} onChange={(e: any) => setDraftStyle({...draftStyle, grayscale: e.target.checked ? 1 : 0})} /> ЧБ-фильтр</label>
+              <label className="flex items-center gap-2 mt-4 text-sm"><input type="checkbox" checked={draftStyle.grayscale === 1} onChange={(e) => setDraftStyle({...draftStyle, grayscale: e.target.checked ? 1 : 0})} /> ЧБ-фильтр</label>
             </div>
           )}
 
+          {/* БЭКАП */}
           {tab === "backup" && (
             <div className="flex flex-col gap-6">
               <div>
                 <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Экспорт</h3>
                 <button onClick={() => {
-                  const data = { version: 2, exportedAt: new Date().toISOString(), season: draftSeason, maintenance: draftMaintenance, news: draftNews, archive: draftArchive, matches: draftMatches, fighters: draftFighters, users, tracks: draftTracks, style: draftStyle };
+                  const data = { version: 2, exportedAt: new Date().toISOString(), season: draftSeason, maintenance: draftMaintenance, news: draftNews, archive: draftArchive, matches: draftMatches, fighters: draftFighters, users, tracks: draftTracks, style: draftStyle, brackets: draftBrackets, activeBracketId: draftActiveBracket };
                   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                   const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `backup.json`; a.click();
                 }} className="bg-[#8b0033] text-white font-bold px-4 py-2 rounded hover:opacity-90">💾 Скачать JSON</button>
@@ -336,6 +440,8 @@ export default function AdminOverlay({
                     reader.onload = (ev) => {
                       try { const d = JSON.parse(ev.target?.result as string);
                         setDraftNews(d.news); setDraftArchive(d.archive); setDraftMatches(d.matches); setDraftFighters(d.fighters); setDraftSeason(d.season); setDraftTracks(d.tracks); setDraftStyle(d.style); setDraftMaintenance(d.maintenance);
+                        if(d.brackets) setDraftBrackets(d.brackets);
+                        if(d.activeBracketId) setDraftActiveBracket(d.activeBracketId);
                         alert("Импорт выполнен. Нажми Сохранить!");
                       } catch { alert("Ошибка чтения"); }
                     }; reader.readAsText(file); e.target.value = "";
@@ -353,134 +459,6 @@ export default function AdminOverlay({
           <button onClick={handleCancel} disabled={!dirty} className={`bg-transparent border px-4 py-2.5 rounded-lg ${dirty ? "text-[#9aa0a6] border-[#333]" : "text-[#444] border-[#222]"}`}>Отменить</button>
           <span className="text-[#ffb020] text-xs ml-auto">{dirty ? "Правки применяются только после «Сохранить»" : "Все изменения сохранены"}</span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   ВКЛАДКИ
-   ============================================================ */
-
-function NewsTab({ news, archive, onChangeNews, onRemoveNews, onAddNews, onChangeArchive }: any) {
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-1">Новостные баннеры</h3>
-        <div className="flex flex-col gap-4 mt-4">
-          {news.map((n: any, i: number) => (
-            <div key={n.id} className="bg-[#1d1d27] rounded-xl p-4 border-l-4" style={{ borderLeftColor: n.borderColor }}>
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[#9aa0a6] text-xs uppercase tracking-widest">Баннер #{i + 1}</span>
-                <button onClick={() => onRemoveNews(n.id)} className="text-[#ff2b2b] border border-[#ff2b2b] px-3 py-1 rounded text-xs hover:bg-[#ff2b2b] hover:text-white">🗑 Удалить</button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <Field label="Заголовок"><input type="text" value={n.title} onChange={(e) => onChangeNews(n.id, { title: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
-                <Field label="Подпись"><input type="text" value={n.subtitle} onChange={(e) => onChangeNews(n.id, { subtitle: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
-                <Field label="Ссылка" className="col-span-2"><input type="url" value={n.url} onChange={(e) => onChangeNews(n.id, { url: e.target.value })} className="w-full bg-[#14141c] text-white border border-[#333] rounded px-2 py-1" /></Field>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <ColorField label="Фон" value={n.bgColor} onChange={(v: any) => onChangeNews(n.id, { bgColor: v })} />
-                <ColorField label="Рамка" value={n.borderColor} onChange={(v: any) => onChangeNews(n.id, { borderColor: v })} />
-                <ColorField label="Текст" value={n.textColor} onChange={(v: any) => onChangeNews(n.id, { textColor: v })} />
-              </div>
-            </div>
-          ))}
-        </div>
-        <button onClick={onAddNews} className="mt-4 bg-[#8b0033] text-white font-bold px-4 py-2 rounded hover:opacity-90">+ Добавить</button>
-      </div>
-      <div className="border-t border-[#2a2a36] pt-6">
-        <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Архив</h3>
-        <div className="flex flex-col gap-3 max-w-[720px]">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={archive.enabled} onChange={(e) => onChangeArchive({ enabled: e.target.checked })} /> Включен</label>
-          <Field label="Заголовок"><input type="text" value={archive.title} onChange={(e) => onChangeArchive({ title: e.target.value })} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
-          <Field label="Подпись"><input type="text" value={archive.subtitle} onChange={(e) => onChangeArchive({ subtitle: e.target.value })} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
-          <Field label="Ссылка"><input type="url" value={archive.url} onChange={(e) => onChangeArchive({ url: e.target.value })} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded px-2 py-1" /></Field>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BracketTab({ matches, fighters, setMatches, setFighters, createFighter }: any) {
-  const maxRound = matches.length ? Math.max(...matches.map((m: any) => m.round)) : 1;
-  const [genSize, setGenSize] = useState(8);
-
-  function updateMatch(id: string, patch: any) { setMatches((prev: any) => prev.map((m: any) => (m.id === id ? { ...m, ...patch } : m))); }
-  
-  function handleGenerate() {
-    if (!confirm(`Создать новую сетку на ${genSize} участников? Текущие матчи будут стерты.`)) return;
-    let currentPool = [...fighters];
-    
-    if (currentPool.length < genSize) {
-      for (let i = currentPool.length; i < genSize; i++) {
-        currentPool.push({ id: `f_${Date.now()}_${i}`, name: `Слот ${i+1}`, userId: null, prevScore: 0, totalScore: 0 });
-      }
-    } else if (currentPool.length > genSize) {
-      currentPool = currentPool.slice(0, genSize);
-    }
-
-    setFighters(currentPool);
-    const newMatches = regenerateBracket(currentPool.map((f:any) => f.id), currentPool);
-    setMatches(newMatches);
-  }
-
-  function completeAndAdvance(m: any) {
-    if (!m.winner || !m.fighter1 || !m.fighter2) return;
-    const wScore = m.winner === m.fighter1 ? m.score1 : m.score2;
-    if (wScore != null) setFighters((prev: any) => prev.map((f: any) => f.id === m.winner ? { ...f, totalScore: (f.totalScore || 0) + wScore } : f));
-    setMatches((prev: any) => {
-      let upd = prev.map((x: any) => x.id === m.id ? { ...x, status: "completed" } : x);
-      if (m.round >= maxRound) return upd;
-      const nextMatch = upd.find((x: any) => x.round === m.round + 1 && x.index === Math.ceil(m.index / 2));
-      if (nextMatch) {
-        const slot = m.index % 2 === 1 ? "fighter1" : "fighter2";
-        upd = upd.map((x: any) => x.id === nextMatch.id ? { ...x, [slot]: m.winner, winner: null, status: "pending" } : x);
-      }
-      return upd;
-    });
-  }
-
-  return (
-    <div>
-      <div className="mb-6 p-4 bg-[#1d1d27] border border-[#333] rounded-xl flex items-center gap-4">
-        <span className="text-sm font-bold text-white">Создать новую сетку:</span>
-        <select value={genSize} onChange={e => setGenSize(+e.target.value)} className="bg-[#14141c] text-white border border-[#333] rounded px-2 py-1 text-sm">
-          <option value={4}>4 участника</option>
-          <option value={8}>8 участников</option>
-          <option value={16}>16 участников</option>
-          <option value={32}>32 участника</option>
-        </select>
-        <button onClick={handleGenerate} className="bg-[#ff2b2b] text-white font-bold px-4 py-1.5 rounded hover:opacity-90 text-sm">Сгенерировать</button>
-      </div>
-
-      <h3 className="text-[#00a3ff] text-sm uppercase tracking-widest mb-4">Текущая сетка</h3>
-      <div className="grid gap-4 items-start" style={{ gridTemplateColumns: `repeat(${maxRound}, minmax(230px, 1fr))` }}>
-        {Array.from({ length: maxRound }, (_, i) => i + 1).map((r) => {
-          const roundMatches = matches.filter((m: any) => m.round === r).sort((a: any, b: any) => a.index - b.index);
-          return (
-            <div key={r}>
-              <div className="text-[10px] uppercase tracking-widest text-[#9aa0a6] mb-2 font-bold">{r === maxRound ? "Финал" : r === maxRound - 1 && maxRound >= 3 ? "Полуфинал" : `Раунд ${r}`}</div>
-              <div className="flex flex-col gap-3">
-                {roundMatches.map((m: any) => (
-                  <div key={m.id} className="bg-[#1d1d27] border border-[#2a2a36] rounded p-3">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-[10px] text-[#9aa0a6]">Матч {m.index}</span>
-                      <select value={m.status} onChange={(e: any) => updateMatch(m.id, { status: e.target.value })} className="bg-[#14141c] text-[10px] border border-[#333] rounded">
-                        <option value="pending">Ожидание</option><option value="betting_open">Ставки</option><option value="tracks_open">Треки</option><option value="judging">Суд</option><option value="completed">Готово</option>
-                      </select>
-                    </div>
-                    <FighterRow match={m} slot={1} fighters={fighters} onUpdate={(p: any) => updateMatch(m.id, p)} onSetWinner={() => updateMatch(m.id, { winner: m.fighter1 })} createFighter={createFighter} />
-                    <FighterRow match={m} slot={2} fighters={fighters} onUpdate={(p: any) => updateMatch(m.id, p)} onSetWinner={() => updateMatch(m.id, { winner: m.fighter2 })} createFighter={createFighter} />
-                    <div className="flex gap-1 mt-2">
-                      <button onClick={() => completeAndAdvance(m)} className="text-[10px] bg-[#35d07f] text-[#062a16] font-bold px-2 py-1 rounded w-full">✓ Завершить</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

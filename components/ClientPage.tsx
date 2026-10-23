@@ -11,13 +11,13 @@ import TracksSection from "./TracksSection";
 import AdminOverlay from "./AdminOverlay";
 import Footer from "./Footer";
 import { useAuth } from "@/lib/auth-context";
-import type { Match, Track, NewsItem, ArchiveConfig, Fighter, Season, User, Bet, StyleConfig, LeaderboardUser } from "@/lib/types";
+import type { Match, Track, NewsItem, ArchiveConfig, Fighter, Season, User, Bet, StyleConfig, LeaderboardUser, Bracket as BracketType } from "@/lib/types";
 
 type Role = "anonymous" | "user" | "participant" | "admin";
 
 interface ServerData {
   season: Season; maintenance: boolean; maintenanceConfig: any; versionName: string; archive: ArchiveConfig; style: StyleConfig;
-  news: NewsItem[]; matches: Match[]; fighters: Fighter[]; tracks: Track[]; registrations: any[]; leaderboard: LeaderboardUser[];
+  news: NewsItem[]; brackets: BracketType[]; activeBracketId: string; matches: Match[]; fighters: Fighter[]; tracks: Track[]; registrations: any[]; leaderboard: LeaderboardUser[];
 }
 
 export default function ClientPage() {
@@ -61,14 +61,12 @@ export default function ClientPage() {
 
   async function placeBet(matchId: string, fighterId: string) {
     const res = await fetch("/api/bets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId, fighterId }) });
-    if (res.ok) await reload();
-    else alert("Ошибка ставки");
+    if (res.ok) await reload(); else alert("Ошибка ставки");
   }
 
   async function submitTrack(matchId: string, url: string) {
     const res = await fetch("/api/tracks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId, url }) });
-    if (res.ok) await reload();
-    else alert("Ошибка отправки трека");
+    if (res.ok) await reload(); else alert("Ошибка отправки трека");
   }
 
   async function togglePublish(trackId: string) {
@@ -88,6 +86,7 @@ export default function ClientPage() {
       {adminOpen && role === "admin" && (
         <AdminOverlay
           news={data.news} archive={data.archive} matches={data.matches} fighters={data.fighters}
+          brackets={data.brackets} activeBracketId={data.activeBracketId}
           users={adminUsers} season={data.season} maintenance={data.maintenance}
           maintenanceConfig={data.maintenanceConfig} versionName={data.versionName}
           tracks={data.tracks} style={data.style} registrations={data.registrations}
@@ -118,7 +117,6 @@ export default function ClientPage() {
               <ArchiveBanner config={data.archive} />
               
               <div className="flex flex-col md:flex-row gap-8 mb-8">
-                {/* Левая колонка (Сетка и Матчи) */}
                 <div className="flex-1">
                   <section className="mb-8">
                     <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Турнирная сетка</h2>
@@ -128,10 +126,7 @@ export default function ClientPage() {
                   <TracksSection role={role} currentUserId={currentUserId} matches={data.matches} fighters={data.fighters} tracks={data.tracks} onTrackSubmit={submitTrack} onTogglePublish={togglePublish} />
                 </div>
 
-                {/* Правая колонка (Лидерборд и Запись) */}
                 <div className="w-full md:w-[350px] flex flex-col gap-6">
-                  
-                  {/* Лидерборд */}
                   <div className="bg-[#14141c] border border-[#ffb020] rounded-xl p-4 shadow-[0_0_15px_rgba(255,176,32,0.2)]">
                     <h3 className="text-[#ffb020] font-black uppercase tracking-widest text-center mb-4 border-b border-[#2a2a36] pb-2">🏆 Премия Ванги</h3>
                     <div className="flex flex-col gap-2">
@@ -142,13 +137,12 @@ export default function ClientPage() {
                             <span className={`text-xs font-bold w-4 ${i === 0 ? "text-[#ffd700]" : i === 1 ? "text-[#c0c0c0]" : i === 2 ? "text-[#cd7f32]" : "text-[#666]"}`}>{i + 1}.</span>
                             <span className="text-white">{u.displayName}</span>
                           </span>
-                          <span className="text-[#35d07f] font-mono font-bold">{u.points} P</span>
+                          <span className="text-[#35d07f] font-mono font-bold">{u.points} 🔮</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Блок записи */}
                   <div id="registration-block" className="bg-[#14141c] border border-[#00a3ff] rounded-xl p-4">
                     <h3 className="text-[#00a3ff] font-black uppercase tracking-widest mb-4 text-center">Запись на батл</h3>
                     {role === "anonymous" && (

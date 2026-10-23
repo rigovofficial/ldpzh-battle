@@ -10,24 +10,21 @@ export default function MatchCard({
   const f1 = match.fighter1 ? fighters.find((f) => f.id === match.fighter1) : null;
   const f2 = match.fighter2 ? fighters.find((f) => f.id === match.fighter2) : null;
 
-  const statusText: Record<Match["status"], string> = {
-    pending: "ОЖИДАНИЕ", betting_open: "СТАВКИ ОТКРЫТЫ", tracks_open: "ПРИЁМ ТРЕКОВ", judging: "СУДЕЙСТВО", completed: "ЗАВЕРШЁН",
-  };
-  const statusCls: Record<Match["status"], string> = {
-    pending: "bg-[#333] text-[#999]", betting_open: "bg-[#35d07f] text-[#062a16]", tracks_open: "bg-[#00a3ff] text-[#002233]", judging: "bg-[#ffb020] text-[#2a1c00]", completed: "bg-[#444] text-[#ccc]",
-  };
+  const statusText = match.isCompleted ? "ЗАВЕРШЁН" : match.isBettingOpen ? "СТАВКИ ОТКРЫТЫ" : match.isTracksOpen ? "ПРИЁМ ТРЕКОВ" : "ОЖИДАНИЕ";
+  const statusCls = match.isCompleted ? "bg-[#444] text-[#ccc]" : match.isBettingOpen ? "bg-[#35d07f] text-[#062a16]" : match.isTracksOpen ? "bg-[#00a3ff] text-[#002233]" : "bg-[#333] text-[#999]";
 
   const myBet = bets.find((b) => b.userId === currentUserId);
   const votedFighter = myBet ? fighters.find((f) => f.id === myBet.fighterId) : null;
   const votes1 = bets.filter((b) => b.fighterId === match.fighter1).length;
   const votes2 = bets.filter((b) => b.fighterId === match.fighter2).length;
-  const canBet = match.status === "betting_open" && (role === "user" || role === "admin") && !myBet;
+  
+  const canBet = match.isBettingOpen && !match.isCompleted && (role === "user" || role === "admin") && !myBet;
 
   return (
     <div className="bg-[#14141c] border border-[#00a3ff] rounded-2xl p-5">
       <div className="flex justify-between items-center text-[11px] uppercase tracking-widest text-[#9aa0a6] mb-4">
         <span>Раунд {match.round} · Матч {match.index}</span>
-        <span className={`px-2.5 py-1 rounded-full font-extrabold ${statusCls[match.status]}`}>{statusText[match.status]}</span>
+        <span className={`px-2.5 py-1 rounded-full font-extrabold ${statusCls}`}>{statusText}</span>
       </div>
       <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
         <div className="bg-[#1d1d27] rounded-xl p-4 text-center">
@@ -40,7 +37,8 @@ export default function MatchCard({
           <div className="text-[#00a3ff] text-[22px] font-black">{match.odds2.toFixed(2)}</div>
         </div>
       </div>
-      {match.status === "betting_open" && (
+
+      {match.isBettingOpen && !match.isCompleted && (
         <>
           {role === "anonymous" && <div className="mt-4 p-3 border-2 border-[#ff2b2b] rounded-xl text-[#ff2b2b] text-center text-[13px] bg-[rgba(255,43,43,0.08)]">Зарегистрируйтесь, чтобы сделать ставку</div>}
           {role === "participant" && <div className="mt-4 p-3 border-2 border-[#ff2b2b] rounded-xl text-[#ff2b2b] text-center text-[13px] bg-[rgba(255,43,43,0.08)]">Участникам запрещено ставить на матчи</div>}
@@ -58,6 +56,7 @@ export default function MatchCard({
           )}
         </>
       )}
+
       <div className="mt-4 p-3 bg-[#1d1d27] rounded-xl text-[13px] text-[#9aa0a6]">
         Голоса: {f1?.name ?? "—"} — <strong className="text-white">{votes1}</strong>, {f2?.name ?? "—"} — <strong className="text-white">{votes2}</strong>. Кэфы: {match.odds1.toFixed(2)} / {match.odds2.toFixed(2)}
       </div>

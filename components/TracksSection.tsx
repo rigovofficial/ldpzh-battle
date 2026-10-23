@@ -13,7 +13,7 @@ export default function TracksSection({
 }) {
   const [urlInput, setUrlInput] = useState("");
   const myFighter = fighters.find((f) => f.userId === currentUserId);
-  const openMatch = role === "participant" && myFighter ? matches.find((m) => (m.fighter1 === myFighter.id || m.fighter2 === myFighter.id) && m.status === "tracks_open") : null;
+  const openMatch = role === "participant" && myFighter ? matches.find((m) => (m.fighter1 === myFighter.id || m.fighter2 === myFighter.id) && m.isTracksOpen && !m.isCompleted) : null;
   const myExistingTrack = myFighter && openMatch ? tracks.find((t) => t.matchId === openMatch.id && t.fighterId === myFighter.id) : null;
   const canSubmit = !!openMatch && !myExistingTrack;
 
@@ -22,6 +22,7 @@ export default function TracksSection({
   return (
     <section className="mb-8">
       <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Треки</h2>
+      
       {role === "participant" && openMatch && canSubmit && (
         <div className="mb-4 p-4 bg-[#1d1d27] rounded-xl">
           <div className="text-[13px] text-[#9aa0a6] mb-3">Матч: раунд {openMatch.round}, матч {openMatch.index} — приём открыт</div>
@@ -37,6 +38,7 @@ export default function TracksSection({
           {myExistingTrack.isPublished ? <span className="text-[#35d07f] ml-2">(опубликован)</span> : <span className="text-[#ffb020] ml-2">(скрыт)</span>}
         </div>
       )}
+
       {visibleTracks.length === 0 ? <div className="bg-[#14141c] border border-dashed border-[#333] rounded-xl p-6 text-center text-[#9aa0a6] italic">Нет треков.</div> : (
         <div className="flex flex-col gap-2">
           {visibleTracks.map((t) => {
