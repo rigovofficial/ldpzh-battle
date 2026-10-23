@@ -11,13 +11,13 @@ import TracksSection from "./TracksSection";
 import AdminOverlay from "./AdminOverlay";
 import Footer from "./Footer";
 import { useAuth } from "@/lib/auth-context";
-import type { Match, Track, NewsItem, ArchiveConfig, Fighter, Season, User, Bet, StyleConfig } from "@/lib/types";
+import type { Match, Track, NewsItem, ArchiveConfig, Fighter, Season, User, Bet, StyleConfig, LeaderboardUser } from "@/lib/types";
 
 type Role = "anonymous" | "user" | "participant" | "admin";
 
 interface ServerData {
-  season: Season; maintenance: boolean; archive: ArchiveConfig; style: StyleConfig;
-  news: NewsItem[]; matches: Match[]; fighters: Fighter[]; tracks: Track[]; registrations: any[];
+  season: Season; maintenance: boolean; maintenanceConfig: any; versionName: string; archive: ArchiveConfig; style: StyleConfig;
+  news: NewsItem[]; matches: Match[]; fighters: Fighter[]; tracks: Track[]; registrations: any[]; leaderboard: LeaderboardUser[];
 }
 
 export default function ClientPage() {
@@ -89,6 +89,7 @@ export default function ClientPage() {
         <AdminOverlay
           news={data.news} archive={data.archive} matches={data.matches} fighters={data.fighters}
           users={adminUsers} season={data.season} maintenance={data.maintenance}
+          maintenanceConfig={data.maintenanceConfig} versionName={data.versionName}
           tracks={data.tracks} style={data.style} registrations={data.registrations}
           onSave={async (p) => {
             const res = await fetch("/api/admin/save", { method: "PUT", body: JSON.stringify(p) });
@@ -105,26 +106,77 @@ export default function ClientPage() {
       <main className="min-h-screen bg-[#0b0b0f] text-[#f5f5f5]" style={{ filter: `grayscale(${data.style.grayscale})` }}>
         <div className="max-w-[1180px] mx-auto p-4">
           {showMaintenance ? (
-            <div className="bg-[#ff2b2b] text-white text-center p-4 rounded-xl font-bold my-8">🛠 САЙТ НА ТЕХРАБОТАХ.</div>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 border-2 border-[#ff2b2b] rounded-2xl bg-[#1a0a0a] mt-10">
+               {data.maintenanceConfig?.imageUrl && <img src={data.maintenanceConfig.imageUrl} alt="Markin" className="max-w-[300px] mb-6 rounded-lg shadow-lg" />}
+               <h1 className="text-3xl font-black text-[#ff2b2b] uppercase tracking-widest mb-4">{data.maintenanceConfig?.title || "ТЕХРАБОТЫ"}</h1>
+               <p className="text-[#9aa0a6] text-lg">{data.maintenanceConfig?.subtitle || "ЗАХОДИ ПОЗЖЕ, БРО"}</p>
+            </div>
           ) : (
             <>
               <SeasonHeader season={data.season} />
               <NewsBanners items={data.news} />
               <ArchiveBanner config={data.archive} />
-              {role === "user" && data.season?.registration?.enabled && !myReg && regStatus !== "success" && (
-                <div className="mb-8 p-4 bg-[#14141c] border border-[#00a3ff] rounded-xl flex flex-col md:flex-row items-center gap-4">
-                  <input type="text" placeholder="Твой боевой ник" value={regNickname} onChange={(e) => setRegNickname(e.target.value)} className="flex-1 bg-[#1d1d27] text-white border border-[#333] rounded-lg px-4 py-3 outline-none focus:border-[#00a3ff]" />
-                  <button onClick={handleRegister} style={{ backgroundColor: data.season.registration.buttonColor }} className="text-white font-extrabold px-6 py-3 rounded-lg hover:opacity-90 w-full md:w-auto">{data.season.registration.buttonText}</button>
+              
+              <div className="flex flex-col md:flex-row gap-8 mb-8">
+                {/* Левая колонка (Сетка и Матчи) */}
+                <div className="flex-1">
+                  <section className="mb-8">
+                    <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Турнирная сетка</h2>
+                    <Bracket matches={data.matches} fighters={data.fighters} currentUserId={currentUserId} role={role} style={data.style} />
+                  </section>
+                  <MatchesSection matches={data.matches} bets={bets} fighters={data.fighters} role={role} currentUserId={currentUserId} onBet={placeBet} />
+                  <TracksSection role={role} currentUserId={currentUserId} matches={data.matches} fighters={data.fighters} tracks={data.tracks} onTrackSubmit={submitTrack} onTogglePublish={togglePublish} />
                 </div>
-              )}
-              {myReg && <div className="mb-8 p-4 bg-[#1d1d27] border border-[#35d07f] rounded-xl text-[#35d07f] text-center font-bold">Вы уже подали заявку как <span className="text-white">"{myReg.desired_nickname}"</span>. Ожидайте одобрения.</div>}
-              <section className="mb-8">
-                <h2 className="text-lg font-extrabold uppercase tracking-wide mb-3 pl-2.5 border-l-4 border-[#00a3ff]">Турнирная сетка</h2>
-                <Bracket matches={data.matches} fighters={data.fighters} currentUserId={currentUserId} role={role} style={data.style} />
-              </section>
-              <MatchesSection matches={data.matches} bets={bets} fighters={data.fighters} role={role} currentUserId={currentUserId} onBet={placeBet} />
-              <TracksSection role={role} currentUserId={currentUserId} matches={data.matches} fighters={data.fighters} tracks={data.tracks} onTrackSubmit={submitTrack} onTogglePublish={togglePublish} />
-              <Footer />
+
+                {/* Правая колонка (Лидерборд и Запись) */}
+                <div className="w-full md:w-[350px] flex flex-col gap-6">
+                  
+                  {/* Лидерборд */}
+                  <div className="bg-[#14141c] border border-[#ffb020] rounded-xl p-4 shadow-[0_0_15px_rgba(255,176,32,0.2)]">
+                    <h3 className="text-[#ffb020] font-black uppercase tracking-widest text-center mb-4 border-b border-[#2a2a36] pb-2">🏆 Премия Ванги</h3>
+                    <div className="flex flex-col gap-2">
+                      {data.leaderboard?.length === 0 && <div className="text-[#9aa0a6] text-center text-sm">Пока нет предсказаний</div>}
+                      {data.leaderboard?.map((u, i) => (
+                        <div key={u.id} className="flex justify-between items-center text-sm">
+                          <span className="flex items-center gap-2">
+                            <span className={`text-xs font-bold w-4 ${i === 0 ? "text-[#ffd700]" : i === 1 ? "text-[#c0c0c0]" : i === 2 ? "text-[#cd7f32]" : "text-[#666]"}`}>{i + 1}.</span>
+                            <span className="text-white">{u.displayName}</span>
+                          </span>
+                          <span className="text-[#35d07f] font-mono font-bold">{u.points} P</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Блок записи */}
+                  <div id="registration-block" className="bg-[#14141c] border border-[#00a3ff] rounded-xl p-4">
+                    <h3 className="text-[#00a3ff] font-black uppercase tracking-widest mb-4 text-center">Запись на батл</h3>
+                    {role === "anonymous" && (
+                       <div className="text-center text-[#9aa0a6] text-sm p-4 border border-dashed border-[#333] rounded-lg">
+                         Зарегистрируйтесь или войдите, чтобы записаться на батл.
+                       </div>
+                    )}
+                    {role === "user" && data.season?.registration?.enabled && !myReg && regStatus !== "success" && (
+                      <div className="flex flex-col gap-3">
+                        <input type="text" placeholder="Твой боевой ник" value={regNickname} onChange={(e) => setRegNickname(e.target.value)} className="w-full bg-[#1d1d27] text-white border border-[#333] rounded-lg px-4 py-3 outline-none focus:border-[#00a3ff]" />
+                        <button onClick={handleRegister} style={{ backgroundColor: data.season.registration.buttonColor }} className="text-white font-extrabold px-6 py-3 rounded-lg hover:opacity-90 w-full">{data.season.registration.buttonText}</button>
+                      </div>
+                    )}
+                    {myReg && (
+                      <div className="p-3 bg-[#1d1d27] border border-[#35d07f] rounded-lg text-[#35d07f] text-center text-sm font-bold">
+                        Вы подали заявку как "{myReg.desired_nickname}". Ждите.
+                      </div>
+                    )}
+                    {role === "participant" && (
+                      <div className="p-3 bg-[#1d1d27] border border-[#00a3ff] rounded-lg text-[#00a3ff] text-center text-sm font-bold">
+                        Ты уже участник батла.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <Footer version={data.versionName} />
             </>
           )}
         </div>
