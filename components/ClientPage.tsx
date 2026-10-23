@@ -59,21 +59,17 @@ export default function ClientPage() {
     if (res.ok) { setRegStatus("success"); reload(); } else { setRegStatus("error"); }
   }
 
-   async function placeBet(matchId: string, fighterId: string) {
+  async function placeBet(matchId: string, fighterId: string) {
     if (!data) return;
-
-    // 1. СРАЗУ блокируем кнопки (Оптимистичный UI)
     const match = data.matches.find(m => m.id === matchId);
     if (!match) return;
     
     const coeff = fighterId === match.fighter1 ? match.odds1 : match.odds2;
     const optimisticBet = { userId: currentUserId, matchId, fighterId, coeff };
 
-    // Добавляем в локальный стейт, чтобы кнопки мгновенно исчезли
     setBets(prev => [...prev, optimisticBet]);
 
     try {
-      // 2. Отправляем на сервер
       const res = await fetch("/api/bets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,15 +79,12 @@ export default function ClientPage() {
       if (!res.ok) {
         const json = await res.json();
         alert("Ошибка: " + (json.error || "неизвестно"));
-        // Откат: удаляем ставку из стейта, если сервер не принял
         setBets(prev => prev.filter(b => !(b.matchId === matchId && b.userId === currentUserId)));
       } else {
-        // Если всё ок, перезапрашиваем данные с сервера (обновляем кэфы)
         await reload();
       }
     } catch (err) {
       alert("Сетевая ошибка. Проверьте интернет.");
-      // Откат
       setBets(prev => prev.filter(b => !(b.matchId === matchId && b.userId === currentUserId)));
     }
   }
@@ -122,23 +115,28 @@ export default function ClientPage() {
           users={adminUsers} season={data.season} maintenance={data.maintenance}
           maintenanceConfig={data.maintenanceConfig} versionName={data.versionName}
           tracks={data.tracks} style={data.style} registrations={data.registrations}
-                    onSave={async (p) => {
+          // --- ИСПРАВЛЕННЫЕ КОЛЛБЕКИ ---
+          onSave={async (p: any) => {
             try {
               const res = await fetch("/api/admin/save", { method: "PUT", body: JSON.stringify(p) });
               const json = await res.json().catch(() => ({}));
-              if (!res.ok) { 
-                alert("Ошибка сохранения:\n" + (json.error || "Неизвестная ошибка")); 
-                return; 
-              }
+              if (!res.ok) { alert("Ошибка сохранения:\n" + (json.error || "Неизвестная ошибка")); return; }
               await reload(); await reloadUsers(); alert("Сохранено!");
             } catch (err: any) {
               alert("Сетевая ошибка: " + err.message);
             }
           }}
-          
-          onDeleteUser={async (id) => { await fetch(`/api/admin/users/${id}`, { method: "DELETE" }); await reloadUsers(); await reload(); }}
-          onPatchUser={async (id, p) => { await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) }); await reloadUsers(); }}
-          onApproveReg={async (regId, userId, nickname) => { await fetch("/api/admin/approve", { method: "POST", body: JSON.stringify({ regId, userId, nickname }) }); await reload(); await reloadUsers(); }}
+          onDeleteUser={async (id: string) => { await fetch(`/api/admin/users/${id}`, { method: "DELETE" }); await reloadUsers(); await reload(); }}
+          onPatchUser={async (id: string, p: any) => { await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) }); await reloadUsers(); }}
+          onApproveReg={async (regId: string, userId: string, nickname: string) => { await fetch("/api/admin/approve", { method: "POST", body: JSON.stringify({ regId, userId, nickname }) }); await reload(); await reloadUsers(); }}
+          onResolveBets={async (matchId: string) => {
+            if (!confirm("Рассчитать ставки на этот матч? Очки будут начислены/списаны.")) return;
+            const res = await fetch("/api/admin/resolve-bets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId }) });
+            const json = await res.json();
+            if (!res.ok) return alert(json.error);
+            alert(`Успешно! Рассчитано ставок: ${json.resolvedCount}`);
+            await reload();
+          }}
           onClose={() => setAdminOpen(false)}
         />
       )}
