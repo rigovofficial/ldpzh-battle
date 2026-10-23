@@ -103,7 +103,7 @@ export default function ClientPage() {
               alert("Сетевая ошибка: " + err.message);
             }
           }}
-          }}
+          
           onDeleteUser={async (id) => { await fetch(`/api/admin/users/${id}`, { method: "DELETE" }); await reloadUsers(); await reload(); }}
           onPatchUser={async (id, p) => { await fetch(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(p) }); await reloadUsers(); }}
           onApproveReg={async (regId, userId, nickname) => { await fetch("/api/admin/approve", { method: "POST", body: JSON.stringify({ regId, userId, nickname }) }); await reload(); await reloadUsers(); }}
