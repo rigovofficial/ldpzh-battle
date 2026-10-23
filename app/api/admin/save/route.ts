@@ -16,14 +16,14 @@ export async function PUT(req: NextRequest) {
   const { season, maintenance, maintenanceConfig, versionName, news, archive, matches, fighters, tracks, style, brackets, activeBracketId } = body;
 
   try {
-    // 1. Начисление очков
+    // 1. Начисление очков (если матч завершен, а очки еще не выданы)
     for (const m of matches) {
       if (m.isCompleted && m.winner && !m.pointsAwarded) {
         const { data: bets } = await supabaseAdmin.from("bets").select("*").eq("match_id", m.id);
         if (bets) {
           for (const bet of bets) {
             const winPoints = bet.fighter_id === m.winner ? Math.round(100 * Number(bet.coeff)) : -100;
-            // Вызываем RPC, игнорируем ошибку, если её нет
+            // Вызываем RPC
             await supabaseAdmin.rpc('increment_points', { user_id: bet.user_id, amount: winPoints }).then();
           }
         }
@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // 2. Удаление старых данных
+    // 2. Удаление старых данных (порядок важен из-за Foreign Key)
     await supabaseAdmin.from("tracks").delete().neq("id", "__never__");
     await supabaseAdmin.from("matches").delete().neq("id", "__never__");
     await supabaseAdmin.from("fighters").delete().neq("id", "__never__");
@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest) {
       const { error } = await supabaseAdmin.from("matches").insert(matches.map((m: any) => ({
         id: m.id, 
         round: m.round, 
-        index: m.index, 
+        match_index: m.index, // <--- ИСПРАВЛЕНО ТУТ
         fighter1: m.fighter1, 
         fighter2: m.fighter2,
         is_completed: !!m.isCompleted, 
@@ -115,7 +115,7 @@ export async function PUT(req: NextRequest) {
       if (error) throw new Error("news insert: " + error.message);
     }
 
-    // 8. Обновление конфига
+    // 8. Обновление конфига в самом конце
     const { error: configErr } = await supabaseAdmin.from("site_config").update({
       season, archive, style, maintenance: !!maintenance, maintenance_config: maintenanceConfig, version_name: versionName, active_bracket_id: validUuid(activeBracketId)
     }).eq("id", 1);
