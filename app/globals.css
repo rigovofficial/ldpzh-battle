@@ -4,15 +4,27 @@
   --background: #ffffff;
   --foreground: #171717;
 }
+
 @keyframes fire-glow {
-  0% { box-shadow: 0 0 10px rgba(255, 69, 0, 0.5); }
-  50% { box-shadow: 0 0 25px rgba(255, 69, 0, 0.9); }
-  100% { box-shadow: 0 0 10px rgba(255, 69, 0, 0.5); }
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(255, 69, 0, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(255, 69, 0, 0.65);
+  }
 }
+
 .fire-border {
-  animation: fire-glow 1.5s infinite;
+  animation: fire-glow 1.8s ease-in-out infinite;
   border: 2px solid #ff4500 !important;
 }
+
+/* Subtle highlight for the final without the distracting Tailwind pulse. */
+.bracket-final-glow {
+  animation: fire-glow 2.4s ease-in-out infinite;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -24,6 +36,17 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
